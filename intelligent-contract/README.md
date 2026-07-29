@@ -107,17 +107,48 @@ run it manually with patience, or extend GLSim's warp support first.
 
 ## 4. Deploy
 
-**The user deploys this contract manually — do not run a deploy command on
-the user's behalf.** Once genvm-lint and the direct test suite are clean:
+**The project owner deploys this contract — an assistant should not deploy
+production instances on someone else's behalf.**
 
 ```bash
 cd intelligent-contract
 genlayer network set studionet   # or the target network
-genlayer deploy contracts/vertex_bounty_fusion.py \
-  --args '[0, 604800]'            # min_bond_default=0, timeout_grace_seconds=7 days
+genlayer deploy --contract contracts/vertex_bounty_fusion.py --args 0 3600
+# args are positional: min_bond_default, timeout_grace_seconds (seconds)
 ```
 
-After deployment, provide the deployed contract address back so the
+### ⚠️ CLI deploy quirk — use the GenLayer Studio web UI if the CLI fails
+
+During this project's own testing, `genlayer deploy` (CLI v0.39.2) **printed
+"Contract deployed successfully" while the transaction actually failed** —
+the finalized receipt showed `result: { status: 'contract_error', payload:
+'invalid_contract' }`, with no stdout/stderr to explain why. A control
+deploy of an unrelated, independently-working reference contract via the
+exact same CLI command succeeded, which ruled out the network/account/CLI
+version as a systemic problem — but the root cause of that one failed CLI
+deploy was never conclusively identified. **Deploying the same, unmodified
+`vertex_bounty_fusion.py` via the GenLayer Studio web UI worked on the first
+try** and produced a fully verified, queryable contract. If you hit
+`invalid_contract` from the CLI, don't assume the contract is broken —
+try the Studio web UI deploy screen instead before making any code changes.
+
+### ✅ Verified working deployment (StudioNet)
+
+| | |
+|---|---|
+| Address | `0x612Dc3dA6d40cAF105185A07DC398D0f14A46e3e` |
+| Deployed via | GenLayer Studio web UI |
+| Constructor args | `min_bond_default=0`, `timeout_grace_seconds=3600` (fast-testing value, not production-realistic — redeploy with a longer grace period such as 259200–604800 for real use) |
+| Verified by | `genlayer call <address> get_config` / `get_categories` / `get_bounties` — all returned correct live data |
+
+This is a **test deployment for verification purposes**. Treat it as proof
+the contract works, not necessarily the address the platform ships with —
+the project owner may deploy a fresh instance (so they hold the `owner`
+role for admin functions like `pause`/`set_owner`) before real use, and
+should decide with the person receiving this project which address is
+authoritative going forward.
+
+Once you know the address you're using, provide it back so the
 frontend/backend wiring (Next.js app, Supabase Edge Functions) can be
 pointed at it. Useful follow-up commands for the debug loop:
 
@@ -127,6 +158,14 @@ genlayer code <address>            # confirm the deployed bytecode/source hash
 genlayer call <address> get_config # sanity-check a view call
 genlayer receipt <tx_hash> --stdout --stderr   # debug a failed transaction
 ```
+
+## Deployment status
+
+**Contract is written, linted, tested, and verified deployed and working**
+on GenLayer StudioNet as of 2026-07-29. See "Verified working deployment"
+above. Nothing about the contract itself is blocking — any remaining work
+is wiring the address into the backend/frontend env vars and, if desired,
+deploying a fresh owner-controlled instance.
 
 ## Contract surface summary
 

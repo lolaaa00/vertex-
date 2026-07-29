@@ -41,7 +41,7 @@ const config: Config = {
       animation: {
         drift: "drift 22s ease-in-out infinite alternate",
         breathe: "breathe 6s ease-in-out infinite",
-        pulse-dot: "pulse-dot 2s ease-in-out infinite",
+        "pulse-dot": "pulse-dot 2s ease-in-out infinite",
         shimmer: "shimmer 8s linear infinite",
         "gn-in": "gn-in .6s cubic-bezier(.16,1,.3,1) forwards",
       },

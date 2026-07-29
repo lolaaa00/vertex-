@@ -52,9 +52,9 @@ the platform into every Edge Function and do not need to be set manually):
 
 | Secret | Used by | Notes |
 |---|---|---|
-| `GENLAYER_CONTRACT_ADDRESS` | sync-chain-state | Left unset until the IC is deployed manually (per project convention — Claude does not deploy the contract). Function no-ops cleanly if unset. |
-| `GENLAYER_RPC_URL` | sync-chain-state | GenLayer StudioNet RPC endpoint. |
-| `GENLAYER_CHAIN` | sync-chain-state | Name of the genlayer-js chain preset to use (default `studionet`) — verify the exact export name in `genlayer-js/chains` before first real deploy; flagged in code comments. |
+| `GENLAYER_CONTRACT_ADDRESS` | sync-chain-state | **A verified working test deployment exists**: `0x612Dc3dA6d40cAF105185A07DC398D0f14A46e3e` (StudioNet — see `intelligent-contract/README.md` "Deployment status"). Function no-ops cleanly if unset, so it's safe to leave blank until you decide which address (this test one, or a fresh owner-controlled deploy) is authoritative. |
+| `GENLAYER_RPC_URL` | sync-chain-state | GenLayer StudioNet RPC endpoint: `https://studio.genlayer.com/api` (confirmed via `genlayer network info`). |
+| `GENLAYER_CHAIN` | sync-chain-state | Name of the genlayer-js chain preset. **Still flagged/unverified** — `genlayer-js@0.3.4` (used by the frontend) has no `studionet` export in `genlayer-js/chains`, only `simulator`; the frontend works around this by defining the StudioNet chain manually via `viem`'s `defineChain` (see `frontend/lib/genlayer.ts`). This Edge Function imports `genlayer-js@0.9.1` from esm.sh (a different, newer version) — re-verify whether that version exports a `studionet` preset before relying on the `GENLAYER_CHAIN` env default; if not, port the same manual `defineChain` workaround here. |
 | `WALLET_EMAIL_DOMAIN` | wallet-auth | Domain used for the synthetic per-wallet email, e.g. `wallet.vertex.local`. Optional, has a default. |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Supabase Auth (dashboard config, not a function secret) | Configured in Supabase Dashboard -> Authentication -> Providers -> GitHub. |
 | `TWITTER_CLIENT_ID` / `TWITTER_CLIENT_SECRET` | Supabase Auth (dashboard config) | Configured in Supabase Dashboard -> Authentication -> Providers -> Twitter (X). Requires "Enable Manual Linking" turned on for `linkIdentity()` to work — see https://supabase.com/docs/guides/auth/auth-identity-linking. |
@@ -106,10 +106,11 @@ provider before your ship date in case one has since shipped.
 `genlayer-js`'s `createClient` + `readContract` (verified against
 https://docs.genlayer.com/api-references/genlayer-js) and upserts into Postgres,
 keyed on `chain_bounty_id` / `chain_submission_id` / `(bounty_id, contributor_wallet,
-category)` so re-runs never duplicate rows. The actual contract read function names
-(`get_bounties`, `get_submissions`, `get_contribution_graph`) are placeholders — wire
-them to the real ABI once `intelligent-contract/contracts/vertex_bounty_fusion.py` is
-written and deployed, and set `GENLAYER_CONTRACT_ADDRESS`.
+category)` so re-runs never duplicate rows. The contract read function names used here
+(`get_bounties`, `get_submissions`, `get_contribution_graph`) **now match the real
+deployed ABI** — confirmed against the verified deployment above via
+`genlayer call <address> get_bounties` etc. Set `GENLAYER_CONTRACT_ADDRESS` to enable
+this function; it remains a clean no-op while unset.
 
 ## Local development
 

@@ -36,8 +36,8 @@ Copy `.env.example` to `.env.local` and fill in:
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project settings → API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project settings → API |
-| `NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS` | Printed by `genlayer-cli` after you deploy `intelligent-contract/contracts/vertex_bounty_fusion.py` to StudioNet — leave blank until deployed |
-| `NEXT_PUBLIC_GENLAYER_RPC_URL` | GenLayer StudioNet RPC endpoint |
+| `NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS` | A verified working test deployment exists: `0x612Dc3dA6d40cAF105185A07DC398D0f14A46e3e` (see `intelligent-contract/README.md`). Decide with whoever owns this project whether to keep using it or deploy a fresh owner-controlled instance before real use. |
+| `NEXT_PUBLIC_GENLAYER_RPC_URL` | GenLayer StudioNet RPC endpoint: `https://studio.genlayer.com/api` |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | Free project ID from https://cloud.reown.com |
 
 The app builds and runs with these unset — it will log warnings and render
@@ -72,6 +72,10 @@ vars available in preview deployments.
 
 ## Route map
 
+All routes below were visually verified running (`npm run dev`) on
+2026-07-29 — every page renders the full design system (gradient mesh,
+glass cards, mono badges), not just the landing page.
+
 | Route | Purpose |
 |---|---|
 | `/` | Landing page |
@@ -89,9 +93,14 @@ vars available in preview deployments.
 
 ## Known TODOs (explicitly marked in source)
 
-- `lib/supabase.ts` / `lib/genlayer.ts` — clients are wired but point at
-  placeholder env vars until the user provides real Supabase + deployed
-  GenLayer contract values.
+- `lib/supabase.ts` — client is wired but points at placeholder env vars
+  until a real Supabase project exists (see repo-root `MEMORY.md`).
+- `lib/genlayer.ts` — **fixed 2026-07-29**: `genlayer-js@0.3.4` has no
+  `studionet` export in `genlayer-js/chains` (only `simulator`); this file
+  now defines StudioNet manually via `viem`'s `defineChain` using the real
+  chain ID (61999) and RPC (`https://studio.genlayer.com/api`), the same way
+  `genlayer-js` defines `simulator` internally. `npm run build` passes
+  cleanly with this fix.
 - `lib/wallet.ts` — wagmi chains list uses `mainnet`/`sepolia` as
   placeholders pending GenLayer StudioNet's chain config.
 - All mock data lives in `lib/mockData.ts` — every page that reads it has an

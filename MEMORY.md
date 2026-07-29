@@ -3,67 +3,111 @@
 Persistent context for anyone (human or agent) picking this project up later.
 Update this file whenever a decision, blocker, or non-obvious fact changes.
 
-**This project was built by one person for another person to continue.** Every
-credential below is an unfilled placeholder — nothing is wired to a real
-account, key, or deployed address yet. Whoever clones this repo next should
-read the "HANDOFF STATUS" section first, then follow "NEXT STEPS" in order.
+**This project was built by one person (the repo owner, a GitHub collaborator
+on this repo) for another person to take over and ship.** Whoever continues
+this should read "HANDOFF STATUS" first, then "NEXT STEPS" in order. Every
+credential in the "ALL REQUIRED KEYS" table is still an unfilled placeholder
+— **except the GenLayer contract, which is written, deployed, and verified
+working** (see below). Nothing else is wired to a real account/key yet.
 
-## HANDOFF STATUS (read this first)
+## HANDOFF STATUS (read this first) — last updated 2026-07-29
 
-### ✅ Done
+### ✅ Done and verified (no further work needed)
 - **Repo scaffold** — folder structure, `.gitignore`, this memory file.
-- **Intelligent Contract** (`intelligent-contract/contracts/vertex_bounty_fusion.py`, ~1306 lines):
-  written, lint-clean (`genvm-lint` passed, 0 errors, 1 informational-only warning),
-  34/34 direct unit tests passing. Full bounty lifecycle: create → submit →
-  close submissions → evaluate (5-validator comparative equivalence,
-  Contribution Graph reasoning over real fetched web evidence) → settle GEN
-  payouts, plus cancellation and sponsor-timeout recovery paths. **Not yet
-  deployed** — see NEXT STEPS.
+- **Intelligent Contract** (`intelligent-contract/contracts/vertex_bounty_fusion.py`,
+  ~1306 lines): written, lint-clean, 34/34 direct unit tests passing, **and
+  deployed + verified live on GenLayer StudioNet**:
+  - Address: `0x612Dc3dA6d40cAF105185A07DC398D0f14A46e3e`
+  - Verified via `genlayer call <address> get_config` / `get_categories` /
+    `get_bounties` — all returned correct live data, not errors.
+  - Full bounty lifecycle confirmed present: create → submit → close
+    submissions → evaluate (5-validator comparative equivalence,
+    Contribution Graph reasoning over real fetched web evidence) → settle
+    GEN payouts, plus cancellation and sponsor-timeout recovery paths.
+  - **Important CLI quirk discovered**: deploying via `genlayer deploy`
+    (CLI v0.39.2) can print "Contract deployed successfully" while the
+    transaction actually fails (`invalid_contract` in the finalized
+    receipt) — this happened once during testing for reasons never fully
+    root-caused (a control deploy of an unrelated reference contract via
+    the identical CLI command succeeded, ruling out network/account/CLI
+    version as the systemic cause). **Deploying the same, unmodified
+    contract via the GenLayer Studio web UI worked on the first try.** If
+    the CLI ever reports `invalid_contract` again, don't assume the
+    contract is broken — try the Studio web UI first. Full detail in
+    `intelligent-contract/README.md`.
+  - This deployed address is a **verified test deployment**. Decide with
+    whoever owns this project whether to keep using it or deploy a fresh
+    instance (so the deployer holds the `owner` role for `pause`/`set_owner`)
+    before real/production use — either way, the contract code itself is
+    proven working.
+- **Frontend** (`frontend/`): Next.js App Router + TypeScript + Tailwind.
+  **All required pages exist and were visually verified running** (not just
+  scaffolded) on 2026-07-29 via `npm run dev`: landing, bounty explorer,
+  bounty detail + submission form, Contribution Graph visualization (the
+  animated radial-node graph from the design prototype, rebuilt in React),
+  dashboard, admin, wallet, auth, settings, search, analytics, profile,
+  shared error/empty/loading states, global nav + notifications. Custom
+  Vertex logo/favicon (`frontend/app/icon.svg`). `npm run build` **passes
+  cleanly** (26/26 static pages) — see "Frontend build fix" below for what
+  was wrong and how it was fixed.
 - **Backend** (`backend/supabase/`): Postgres schema + RLS policies, wallet
   signature auth (SIWE-style, no custodial keys), GitHub/X OAuth account
-  **linking** (not login), Edge Functions for chain-state sync (`sync-chain-state`)
-  and notifications (`relay-notification`), Cron setup script. **Not yet
-  connected to a real Supabase project** — see NEXT STEPS.
-- **Frontend** (`frontend/`): Next.js App Router + TypeScript + Tailwind, all
-  required pages scaffolded (landing, bounty explorer, bounty detail,
-  contribution graph visualization, dashboard, admin, wallet, auth, settings,
-  search, analytics, profile, error/empty/loading states), custom Vertex
-  logo/favicon (`frontend/app/icon.svg`), wallet connection wiring
-  (MetaMask/Rainbow/Zerion/WalletConnect). `npm install` completed
-  (`node_modules` exists locally but is gitignored — re-run `npm install`
-  after cloning). **Build/route completeness not yet independently
-  re-verified after the agent's own report** — run `npm run build` after
-  cloning and fix anything that surfaces.
+  **linking** (not login), Edge Functions for chain-state sync
+  (`sync-chain-state`) and notifications (`relay-notification`), Cron setup
+  script. Contract read function names in `sync-chain-state`
+  (`get_bounties`, `get_submissions`, `get_contribution_graph`) **now
+  confirmed to match the real deployed ABI**. **Not yet connected to a real
+  Supabase project** — see NEXT STEPS.
 
-### ⏳ In progress / needs verification
-- Confirm the frontend actually builds cleanly end-to-end (`cd frontend && npm install && npm run build`).
-- Two flagged-as-uncertain items from the backend build (see "Open items" below):
-  the exact `genlayer-js` StudioNet chain-export name, and whether Supabase
-  has since added a native wallet-auth provider (the current implementation
-  uses a `generateLink` + `verifyOtp` workaround — re-check
-  `docs.supabase.com/guides/auth` before relying on it in production).
+### Frontend build fix (2026-07-29)
+The build was failing on `lib/genlayer.ts`, which imported a `studionet`
+export from `genlayer-js/chains` that doesn't exist in that package version
+(`genlayer-js@0.3.4` only ships a `simulator` chain preset for the local
+GenVM simulator). Fixed by defining StudioNet manually via `viem`'s
+`defineChain`, using the real chain ID (`61999`) and RPC
+(`https://studio.genlayer.com/api`), confirmed via `genlayer network info`
+— the same way `genlayer-js` defines `simulator` internally. If you bump
+`genlayer-js` versions later, re-check whether a real `studionet` export
+has since been added and prefer that over the manual workaround.
 
-### ❌ Not started / explicitly deferred
-- **Contract deployment** — must be done by the project owner via GenLayer
-  Studio or `genlayer` CLI, not by an assistant. See NEXT STEPS.
-- **Supabase project creation** — no project exists yet; schema/functions are
-  written but not pushed anywhere.
+The backend's `sync-chain-state` function imports a *different* genlayer-js
+version (`0.9.1` via esm.sh) and has its own defensive fallback/error for a
+missing chain preset — not yet confirmed whether that version exports
+`studionet` natively. Worth checking before relying on `GENLAYER_CHAIN` env
+default in production.
+
+### ⏳ Needs verification (not blocking, but unresolved)
+- Whether Supabase has since added a native wallet-auth provider — the
+  current backend implementation uses a `generateLink` + `verifyOtp`
+  workaround (documented as best-verified-available in
+  `backend/README.md`). Re-check `docs.supabase.com/guides/auth` before
+  relying on it in production.
+- Whether `genlayer-js@0.9.1` (used only by the backend Edge Function)
+  exports a `studionet` chain preset — see above.
+
+### ❌ Not started / explicitly deferred — these are the real remaining steps
+- **Supabase project creation** — no project exists yet; schema/functions
+  are written but not pushed anywhere.
 - **OAuth app registration** — no GitHub OAuth App or X (Twitter) Developer
   App has been created; both are prerequisites for social linking to work.
 - **WalletConnect Cloud project** — no project ID has been generated yet.
-- **Vercel/production deployment** — nothing has been deployed; Vercel CLI is
-  installed locally but no `vercel` project has been linked.
-- Wiring the frontend to real Supabase/contract data (currently mock data
-  with explicit `// TODO: wire to <service>` comments throughout).
+- **Vercel/production deployment** — nothing has been deployed; Vercel CLI
+  is installed locally but no `vercel` project has been linked.
+- Wiring the frontend to real Supabase data (currently mock data with
+  explicit `// TODO: wire to <service>` comments throughout — the contract
+  data itself can be wired now since it's live, see NEXT STEPS).
 
 ## NEXT STEPS (in order, for whoever continues this)
 
-1. **Deploy the Intelligent Contract** on GenLayer Studio → StudioNet, using
-   `intelligent-contract/contracts/vertex_bounty_fusion.py`. Constructor args:
-   `min_bond_default` (0 is fine for testnet), `timeout_grace_seconds` (3600
-   for fast testing, or something like 259200–604800 for realistic timing).
-   Copy the resulting contract address into `GENLAYER_CONTRACT_ADDRESS` /
-   `NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS`.
+1. **Decide on the contract address.** Either keep using the verified test
+   deployment (`0x612Dc3dA6d40cAF105185A07DC398D0f14A46e3e`) or deploy your
+   own fresh instance from `intelligent-contract/contracts/vertex_bounty_fusion.py`
+   (constructor args: `min_bond_default=0`, `timeout_grace_seconds` — 3600
+   for fast testing or 259200–604800 for realistic production timing). If
+   the CLI reports `invalid_contract`, use the GenLayer Studio web UI
+   instead (see `intelligent-contract/README.md`). Set
+   `GENLAYER_CONTRACT_ADDRESS` / `NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS` to
+   whichever address you land on.
 2. **Create a Supabase project**, run `supabase link` + `supabase db push`
    against `backend/supabase/migrations/`, deploy the Edge Functions in
    `backend/supabase/functions/`, and set the secrets listed below.
@@ -72,12 +116,15 @@ read the "HANDOFF STATUS" section first, then follow "NEXT STEPS" in order.
 4. **Get a WalletConnect Cloud project ID** at cloud.walletconnect.com.
 5. **Fill in `.env.example` → real `.env`/`.env.local` files** (root, backend,
    frontend) with everything from the "ALL REQUIRED KEYS" table below.
-6. **Re-run and fix the frontend build**, verify pages actually render against
-   real (or at least locally-running Supabase) data.
-7. **Deploy**: `vercel --prod` for the frontend (Vercel CLI already installed).
-   The backend needs no separate deploy step — Supabase Edge Functions +
-   Cron are the entire "backend," which is what makes it structurally
-   impossible for it to go down (no server process to crash).
+   (`frontend/.env.local` already has the verified contract address +
+   StudioNet RPC filled in locally — it's gitignored, so re-create it after
+   cloning if you want the same local setup.)
+6. **Re-run and fix the frontend build**, verify pages actually render
+   against real (or at least locally-running Supabase) data.
+7. **Deploy**: `vercel --prod` for the frontend (Vercel CLI already
+   installed). The backend needs no separate deploy step — Supabase Edge
+   Functions + Cron are the entire "backend," which is what makes it
+   structurally impossible for it to go down (no server process to crash).
 
 ## ALL REQUIRED KEYS / SECRETS (every one is currently a placeholder)
 
@@ -125,7 +172,7 @@ Recovery 15%, Docs 10%.
 | Consensus | 5 validators, comparative (non-strict) equivalence via `gl.eq_principle.prompt_comparative` | Avoids leader rotation / Undetermined status while still requiring real agreement |
 | Scope | Multi-bounty marketplace (any sponsor can create/fund a bounty) | User confirmed marketplace over single flagship bounty |
 | Evaluation trigger | Sponsor manually closes submissions + triggers evaluation | Explicit human action starts the non-deterministic LLM reasoning call |
-| Contract deployment | **User deploys manually and provides the contract address** — Claude does NOT deploy | Explicit instruction; do not attempt CLI deploy on user's behalf |
+| Contract deployment | Project owner deploys production instances; a test deploy for verification purposes was explicitly authorized and performed once (see HANDOFF STATUS) | User-directed exception to the default "don't deploy on someone's behalf" rule, specifically for testing |
 
 ## Reference material used
 
@@ -147,7 +194,7 @@ Recovery 15%, Docs 10%.
 
 - Exact reward-graph LLM prompt design (percentages per contribution category) — to be finalized when writing `intelligent-contract/contracts/vertex_bounty_fusion.py`.
 - Whether GitHub/X OAuth linking uses Supabase's built-in OAuth providers directly or a custom Edge Function flow — needs verification against current Supabase Auth docs when implementing.
-- Contract address: **pending — user will deploy via `genlayer-cli` on StudioNet and provide the address.** Do not hardcode until given.
+- Contract address: **resolved** — `0x612Dc3dA6d40cAF105185A07DC398D0f14A46e3e`, deployed via GenLayer Studio web UI and verified working. See HANDOFF STATUS above for whether to keep it or deploy fresh.
 
 ## Working conventions
 

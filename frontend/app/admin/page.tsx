@@ -22,7 +22,7 @@ export default function AdminDashboardPage() {
       </h1>
       <p className="text-t2 mb-8">
         Owner-only platform controls. Actions here are UI-only until wired to
-        the deployed contract's owner-gated entrypoints.
+        the deployed contract&apos;s owner-gated entrypoints.
       </p>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">

@@ -24,7 +24,7 @@ export function SponsorControls({ bounty }: { bounty: Bounty }) {
         Sponsor Controls
       </h3>
       <p className="text-sm text-t2 mb-5">
-        Closing submissions triggers the GenLayer Intelligent Contract's
+        Closing submissions triggers the GenLayer Intelligent Contract&apos;s
         evaluation pass across every submission for this bounty.
       </p>
       {!isSponsor ? (
@@ -47,7 +47,7 @@ export function SponsorControls({ bounty }: { bounty: Bounty }) {
       )}
       {triggered && (
         <p role="status" className="mt-3 text-xs text-amber2 font-mono">
-          Queued locally — TODO: wire to the deployed contract's evaluation
+          Queued locally — TODO: wire to the deployed contract&apos;s evaluation
           entrypoint.
         </p>
       )}
