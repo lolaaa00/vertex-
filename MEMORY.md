@@ -35,11 +35,23 @@ working** (see below). Nothing else is wired to a real account/key yet.
     the CLI ever reports `invalid_contract` again, don't assume the
     contract is broken — try the Studio web UI first. Full detail in
     `intelligent-contract/README.md`.
-  - This deployed address is a **verified test deployment**. Decide with
-    whoever owns this project whether to keep using it or deploy a fresh
-    instance (so the deployer holds the `owner` role for `pause`/`set_owner`)
-    before real/production use — either way, the contract code itself is
-    proven working.
+  - This deployed address is a **verified test deployment**, superseded below
+    by an owner-controlled deployment. The contract code itself is proven
+    working either way.
+
+- **Owner-controlled deployment (2026-07-30)** — the project owner deployed
+  a fresh instance so they hold the `owner` role:
+  - Address: `0xd942430229dD389fabeA73699Ffd9b09549b51D5`
+  - Constructor args: `min_bond_default=0`, `timeout_grace_seconds=259200`
+    (3 days — production-realistic, not the 3600s fast-testing value)
+  - Verified via `genlayer call <address> get_config` (confirms
+    `owner: 0x5601091213049D1C92d99728aa6e8C630e4d7938`, `paused: false`,
+    `timeout_grace_seconds: 259200`) and `get_categories` (returns the 5
+    reward categories) — both returned correct live data.
+  - **This is now the authoritative contract address for the project.**
+    `frontend/.env.local` has `NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS` set to
+    this address. The old test-deployment address above is retained for
+    reference only — do not point any new env file at it.
 - **Frontend** (`frontend/`): Next.js App Router + TypeScript + Tailwind.
   **All required pages exist and were visually verified running** (not just
   scaffolded) on 2026-07-29 via `npm run dev`: landing, bounty explorer,
@@ -99,15 +111,11 @@ default in production.
 
 ## NEXT STEPS (in order, for whoever continues this)
 
-1. **Decide on the contract address.** Either keep using the verified test
-   deployment (`0x612Dc3dA6d40cAF105185A07DC398D0f14A46e3e`) or deploy your
-   own fresh instance from `intelligent-contract/contracts/vertex_bounty_fusion.py`
-   (constructor args: `min_bond_default=0`, `timeout_grace_seconds` — 3600
-   for fast testing or 259200–604800 for realistic production timing). If
-   the CLI reports `invalid_contract`, use the GenLayer Studio web UI
-   instead (see `intelligent-contract/README.md`). Set
-   `GENLAYER_CONTRACT_ADDRESS` / `NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS` to
-   whichever address you land on.
+1. ✅ **Contract address decided** — owner-controlled instance deployed at
+   `0xd942430229dD389fabeA73699Ffd9b09549b51D5` (see HANDOFF STATUS above).
+   `frontend/.env.local`'s `NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS` is set.
+   Still need to set `GENLAYER_CONTRACT_ADDRESS` in the backend's Supabase
+   secrets once the project exists (step 2).
 2. **Create a Supabase project**, run `supabase link` + `supabase db push`
    against `backend/supabase/migrations/`, deploy the Edge Functions in
    `backend/supabase/functions/`, and set the secrets listed below.
@@ -194,7 +202,10 @@ Recovery 15%, Docs 10%.
 
 - Exact reward-graph LLM prompt design (percentages per contribution category) — to be finalized when writing `intelligent-contract/contracts/vertex_bounty_fusion.py`.
 - Whether GitHub/X OAuth linking uses Supabase's built-in OAuth providers directly or a custom Edge Function flow — needs verification against current Supabase Auth docs when implementing.
-- Contract address: **resolved** — `0x612Dc3dA6d40cAF105185A07DC398D0f14A46e3e`, deployed via GenLayer Studio web UI and verified working. See HANDOFF STATUS above for whether to keep it or deploy fresh.
+- Contract address: **resolved** — owner-controlled deployment
+  `0xd942430229dD389fabeA73699Ffd9b09549b51D5`, verified working (see
+  HANDOFF STATUS above). This is the authoritative address going forward;
+  the earlier `0x612Dc...` address was a test deployment only.
 
 ## Working conventions
 
