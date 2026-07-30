@@ -89,20 +89,25 @@ missing chain preset — not yet confirmed whether that version exports
 default in production.
 
 ### ⏳ Needs verification (not blocking, but unresolved)
-- Whether Supabase has since added a native wallet-auth provider — the
-  current backend implementation uses a `generateLink` + `verifyOtp`
-  workaround (documented as best-verified-available in
-  `backend/README.md`). Re-check `docs.supabase.com/guides/auth` before
-  relying on it in production.
+- **Update 2026-07-30**: checked the live Supabase Auth dashboard for the
+  `vertex` project — there IS now a native **"Web3 Wallet"** provider listed
+  under Authentication → Sign In / Providers (currently disabled). This
+  answers the open question below in the affirmative. **Not yet evaluated**
+  whether it fully replaces the `generateLink`+`verifyOtp` workaround in
+  `backend/supabase/functions/wallet-auth/index.ts` — worth investigating
+  before more auth work is built on the current workaround, since a native
+  provider would be simpler and better-supported.
 - Whether `genlayer-js@0.9.1` (used only by the backend Edge Function)
   exports a `studionet` chain preset — see above.
+- The Supabase dashboard's new API-keys UI no longer surfaces a classic JWT
+  secret field (only publishable/secret key pairs and legacy anon/service_role
+  JWTs) — `SUPABASE_JWT_SECRET` from the required-keys table below may no
+  longer apply to new projects. Not needed unless custom JWT verification is
+  added later.
 
 ### ❌ Not started / explicitly deferred — these are the real remaining steps
-- **Supabase project creation** — no project exists yet; schema/functions
-  are written but not pushed anywhere.
 - **OAuth app registration** — no GitHub OAuth App or X (Twitter) Developer
   App has been created; both are prerequisites for social linking to work.
-- **WalletConnect Cloud project** — no project ID has been generated yet.
 - **Vercel/production deployment** — nothing has been deployed; Vercel CLI
   is installed locally but no `vercel` project has been linked.
 - Wiring the frontend to real Supabase data (currently mock data with
@@ -114,19 +119,30 @@ default in production.
 1. ✅ **Contract address decided** — owner-controlled instance deployed at
    `0xd942430229dD389fabeA73699Ffd9b09549b51D5` (see HANDOFF STATUS above).
    `frontend/.env.local`'s `NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS` is set.
-   Still need to set `GENLAYER_CONTRACT_ADDRESS` in the backend's Supabase
-   secrets once the project exists (step 2).
-2. **Create a Supabase project**, run `supabase link` + `supabase db push`
-   against `backend/supabase/migrations/`, deploy the Edge Functions in
-   `backend/supabase/functions/`, and set the secrets listed below.
+2. ✅ **Supabase project created and wired up (2026-07-30)** — project
+   `vertex` (`amnzbzwppazcqkwuuzhy`, org `lcfvtejnnemljeospcit`, region
+   `eu-central-1`). `supabase link` + `supabase db push` applied
+   `0001_init.sql` and `0002_search_and_views.sql`. All 4 Edge Functions
+   deployed (`wallet-auth`, `link-social`, `sync-chain-state`,
+   `relay-notification`). Secrets set: `GENLAYER_CONTRACT_ADDRESS`,
+   `GENLAYER_RPC_URL`, `GENLAYER_CHAIN=studionet`, `WALLET_EMAIL_DOMAIN`,
+   `INTERNAL_FUNCTION_SECRET` (randomly generated, lives only in Supabase's
+   secret store). `scripts/setup_cron.sql` run against the linked DB —
+   `vertex-sync-chain-state` cron job confirmed `active: true` on schedule
+   `* * * * *` (verified via `select * from cron.job`).
 3. **Register OAuth apps** (GitHub OAuth App, X/Twitter Developer App) and
-   configure them as providers in the Supabase Auth dashboard.
-4. **Get a WalletConnect Cloud project ID** at cloud.walletconnect.com.
-5. **Fill in `.env.example` → real `.env`/`.env.local` files** (root, backend,
-   frontend) with everything from the "ALL REQUIRED KEYS" table below.
-   (`frontend/.env.local` already has the verified contract address +
-   StudioNet RPC filled in locally — it's gitignored, so re-create it after
-   cloning if you want the same local setup.)
+   configure them as providers in the Supabase Auth dashboard (Authentication
+   → Sign In / Providers → GitHub / X). Note: also consider the native
+   "Web3 Wallet" provider now visible there — see the "Needs verification"
+   note above before committing to the current wallet-auth workaround.
+4. ✅ **WalletConnect Cloud project ID obtained** —
+   `91f607a2a48b565af91c4bb577d4bd53`, already set in `frontend/.env.local`.
+5. **Fill in remaining `.env.local` values**: `frontend/.env.local` now has
+   Supabase URL + anon key + contract address + RPC + WalletConnect project
+   ID all filled in (gitignored — recreate after cloning). Backend secrets
+   are set directly in Supabase (see step 2), not in a local file. Still
+   needed: `GITHUB_OAUTH_CLIENT_ID/SECRET` and `TWITTER_OAUTH_CLIENT_ID/SECRET`
+   once step 3 is done (set as Supabase Auth provider config, not a secret).
 6. **Re-run and fix the frontend build**, verify pages actually render
    against real (or at least locally-running Supabase) data.
 7. **Deploy**: `vercel --prod` for the frontend (Vercel CLI already
