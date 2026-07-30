@@ -114,8 +114,6 @@ default in production.
   added later.
 
 ### ❌ Not started / explicitly deferred — these are the real remaining steps
-- **OAuth app registration** — no GitHub OAuth App or X (Twitter) Developer
-  App has been created; both are prerequisites for social linking to work.
 - **Vercel/production deployment** — nothing has been deployed; Vercel CLI
   is installed locally but no `vercel` project has been linked.
 - Wiring the frontend to real Supabase data (currently mock data with
@@ -138,11 +136,19 @@ default in production.
    secret store). `scripts/setup_cron.sql` run against the linked DB —
    `vertex-sync-chain-state` cron job confirmed `active: true` on schedule
    `* * * * *` (verified via `select * from cron.job`).
-3. **Register OAuth apps** (GitHub OAuth App, X/Twitter Developer App) and
-   configure them as providers in the Supabase Auth dashboard (Authentication
-   → Sign In / Providers → GitHub / X). Note: also consider the native
-   "Web3 Wallet" provider now visible there — see the "Needs verification"
-   note above before committing to the current wallet-auth workaround.
+3. ✅ **OAuth apps registered (2026-07-30)** — GitHub OAuth App
+   (client ID `Ov23liGSdcx2Ky4Vj71G`) and an X (Twitter) Developer App using
+   **OAuth 2.0** (not the deprecated Consumer Key/Secret OAuth 1.0a flow —
+   the X portal shows both; OAuth 2.0 Client ID/Secret is under "User
+   authentication settings", not "Keys and Tokens"). Both configured as
+   enabled providers in Supabase Dashboard → Authentication → Sign In /
+   Providers, callback URL
+   `https://amnzbzwppazcqkwuuzhy.supabase.co/auth/v1/callback` for both.
+   "Allow manual linking" also enabled (required for `linkIdentity()` per
+   `backend/README.md`). Client secrets live only in the Supabase dashboard —
+   not stored in any repo file. Note: also consider the native "Web3 Wallet"
+   provider now visible there — see the "Needs verification" note above
+   before committing to the current wallet-auth workaround.
 4. ✅ **WalletConnect Cloud project ID obtained** —
    `91f607a2a48b565af91c4bb577d4bd53`, already set in `frontend/.env.local`.
 5. **Fill in remaining `.env.local` values**: `frontend/.env.local` now has
