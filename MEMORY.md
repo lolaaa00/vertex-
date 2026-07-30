@@ -89,14 +89,22 @@ missing chain preset — not yet confirmed whether that version exports
 default in production.
 
 ### ⏳ Needs verification (not blocking, but unresolved)
-- **Update 2026-07-30**: checked the live Supabase Auth dashboard for the
-  `vertex` project — there IS now a native **"Web3 Wallet"** provider listed
-  under Authentication → Sign In / Providers (currently disabled). This
-  answers the open question below in the affirmative. **Not yet evaluated**
-  whether it fully replaces the `generateLink`+`verifyOtp` workaround in
-  `backend/supabase/functions/wallet-auth/index.ts` — worth investigating
-  before more auth work is built on the current workaround, since a native
-  provider would be simpler and better-supported.
+- **Update 2026-07-30**: confirmed via `docs.supabase.com/guides/auth/auth-web3`
+  — Supabase now has a first-class native Web3 wallet auth provider,
+  `supabase.auth.signInWithWeb3({ chain: 'ethereum' | 'solana', statement })`,
+  using the EIP-4361 (Sign-In with Ethereum) standard. It handles nonce
+  generation, signature verification, and session minting entirely
+  server-side inside Supabase Auth — **this should replace** the custom
+  `generateLink`+`verifyOtp` workaround in
+  `backend/supabase/functions/wallet-auth/index.ts` and the corresponding
+  frontend wiring. Recommended follow-up task (not yet done, deliberately
+  deferred to finish OAuth app registration first): delete/simplify
+  `wallet-auth` Edge Function, call `signInWithWeb3` directly from the
+  frontend's `lib/wallet.ts`/`lib/supabase.ts`, enable the "Web3 Wallet"
+  provider in Supabase dashboard (Authentication → Providers), configure
+  Redirect URLs to match the app's sign-in page, and turn on CAPTCHA +
+  rate limiting (Web3 accounts have no email/phone, so they're easy to
+  spam without it).
 - Whether `genlayer-js@0.9.1` (used only by the backend Edge Function)
   exports a `studionet` chain preset — see above.
 - The Supabase dashboard's new API-keys UI no longer surfaces a classic JWT
