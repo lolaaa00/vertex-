@@ -36,10 +36,10 @@ vertex/
 
 | Layer | Status |
 |---|---|
-| Intelligent Contract | ✅ Written, tested, **deployed and verified working** on GenLayer StudioNet |
-| Frontend | ✅ All pages built and visually verified, production build passes |
-| Backend | 🟡 Schema + functions written, not yet connected to a live Supabase project |
-| Deployment | 🟡 Nothing pushed to Vercel yet; no Supabase/OAuth/WalletConnect accounts created yet |
+| Intelligent Contract | ✅ Written, tested, **deployed and verified working** on GenLayer StudioNet (owner-controlled instance) |
+| Frontend | ✅ All pages built, visually verified against real env vars, production build passes |
+| Backend | ✅ Live Supabase project: schema pushed, Edge Functions deployed, cron active, GitHub + X OAuth enabled |
+| Deployment | 🟡 Nothing pushed to Vercel yet |
 
 See `MEMORY.md` → "HANDOFF STATUS" and "NEXT STEPS" for the exact remaining
 checklist and every key/secret required.

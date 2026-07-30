@@ -151,14 +151,20 @@ default in production.
    before committing to the current wallet-auth workaround.
 4. ✅ **WalletConnect Cloud project ID obtained** —
    `91f607a2a48b565af91c4bb577d4bd53`, already set in `frontend/.env.local`.
-5. **Fill in remaining `.env.local` values**: `frontend/.env.local` now has
-   Supabase URL + anon key + contract address + RPC + WalletConnect project
-   ID all filled in (gitignored — recreate after cloning). Backend secrets
-   are set directly in Supabase (see step 2), not in a local file. Still
-   needed: `GITHUB_OAUTH_CLIENT_ID/SECRET` and `TWITTER_OAUTH_CLIENT_ID/SECRET`
-   once step 3 is done (set as Supabase Auth provider config, not a secret).
-6. **Re-run and fix the frontend build**, verify pages actually render
-   against real (or at least locally-running Supabase) data.
+5. ✅ **`.env.local` fully filled in** — `frontend/.env.local` has Supabase
+   URL + anon key + contract address + RPC + WalletConnect project ID
+   (gitignored — recreate after cloning). Backend secrets are set directly
+   in Supabase (see step 2), not in a local file. GitHub/X OAuth
+   client ID/secret live only in the Supabase dashboard's provider config
+   (step 3), not in any env file.
+6. ✅ **Frontend build + render verified (2026-07-30)** — `npm install` +
+   `npm run build` passes cleanly (26/26 static pages; the "Module not
+   found" lines for `@react-native-async-storage/async-storage` and
+   `pino-pretty` are expected optional-dependency warnings from
+   RainbowKit/WalletConnect, not build failures). `npm run dev` verified in
+   browser against the real env vars above: landing page renders with the
+   "GenLayer StudioNet" badge and Connect Wallet button, `/bounties` (Bounty
+   Explorer) renders correctly, no console or server errors.
 7. **Deploy**: `vercel --prod` for the frontend (Vercel CLI already
    installed). The backend needs no separate deploy step — Supabase Edge
    Functions + Cron are the entire "backend," which is what makes it
