@@ -160,6 +160,27 @@ default in production.
    X Developer App "User authentication settings" → Website URL to
    `https://ver-tex.vercel.app` (callback URLs unchanged — those correctly
    point at Supabase's `/auth/v1/callback`, not the frontend domain).
+
+### Bug found + fixed: wallet showed Ethereum/Sepolia instead of StudioNet
+   Owner tested wallet-connect on the live site (2026-08-01) — it worked,
+   but the network shown was Ethereum mainnet/Sepolia, not GenLayer
+   StudioNet. Root cause: `frontend/lib/wallet.ts` had a leftover
+   `// TODO: wire GenLayer StudioNet...` placeholder still using
+   `wagmi/chains`' `mainnet` + `sepolia` from before the contract was
+   deployed — never updated once StudioNet was wired into
+   `lib/genlayer.ts`. Fixed by extracting the StudioNet `defineChain(...)`
+   (chain id `61999`, RPC from `NEXT_PUBLIC_GENLAYER_RPC_URL`) into a new
+   shared `frontend/lib/chains.ts`, and pointing `wagmiConfig`'s `chains`/
+   `transports` at it exclusively (removed mainnet/sepolia entirely).
+   `genlayer.ts` now imports the same `studionet` export instead of
+   duplicating the definition. Verified: `npm run build` passes, redeployed
+   to production (`vercel --prod`, auto-realiased to
+   `https://ver-tex.vercel.app`). **Not yet re-verified with a real wallet
+   post-fix** — the automated browser here can't sustain the WalletConnect
+   relay's WebSocket connection (confirmed via direct `new
+   WebSocket('wss://relay.walletconnect.com/')` test — connection never
+   completes), so a human needs to reconnect a wallet on the live site and
+   confirm it now shows "GenLayer StudioNet" instead of Ethereum/Sepolia.
 4. ✅ **WalletConnect Cloud project ID obtained** —
    `91f607a2a48b565af91c4bb577d4bd53`, already set in `frontend/.env.local`.
 5. ✅ **`.env.local` fully filled in** — `frontend/.env.local` has Supabase
