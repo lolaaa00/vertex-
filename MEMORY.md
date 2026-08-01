@@ -105,13 +105,93 @@ default in production.
   Redirect URLs to match the app's sign-in page, and turn on CAPTCHA +
   rate limiting (Web3 accounts have no email/phone, so they're easy to
   spam without it).
-- Whether `genlayer-js@0.9.1` (used only by the backend Edge Function)
-  exports a `studionet` chain preset — see above.
+- ✅ **Resolved 2026-08-01**: `genlayer-js@0.9.1`'s missing `studionet`
+  export was a real, confirmed-active bug — `sync-chain-state` had been
+  failing on every single cron run since deployment (500 error:
+  `genlayer-js has no exported chain preset named "studionet"`), meaning
+  **zero on-chain state had ever been mirrored to Supabase**. Fixed by
+  bumping the Edge Function's pinned `esm.sh` import to
+  `genlayer-js@1.1.8` (matching the frontend, see below), which does
+  export `studionet` natively.
 - The Supabase dashboard's new API-keys UI no longer surfaces a classic JWT
   secret field (only publishable/secret key pairs and legacy anon/service_role
   JWTs) — `SUPABASE_JWT_SECRET` from the required-keys table below may no
   longer apply to new projects. Not needed unless custom JWT verification is
   added later.
+
+### End-to-end create-bounty flow verified working (2026-08-01)
+Owner created a real test bounty via `/bounties/new` end to end. Getting
+from "transaction fails" to "bounty visible in the marketplace" surfaced
+**four separate real bugs**, all now fixed and deployed:
+
+1. **Missing base table GRANTs for `anon`/`authenticated`** (already noted
+   above under Step 2) — `0003_grants.sql`.
+2. **`client.connect("studionet")` requires a MetaMask Snap** — genlayer-js's
+   own network-switch convenience method calls `wallet_getSnaps` /
+   `wallet_requestSnaps` internally, which throws `Method not found:
+   wallet_getSnaps` on any wallet without Snap support (plain MetaMask,
+   Rainbow, Coinbase Wallet, etc.) — even though the actual write path
+   (`writeContract` → `_sendTransaction`) never needs a Snap; for
+   non-local accounts it's a plain `eth_sendTransaction` request. Fixed in
+   `frontend/lib/genlayer.ts` by adding `ensureStudioNetwork()`, which
+   does `wallet_switchEthereumChain`/`wallet_addEthereumChain` directly
+   and never touches Snaps. Verified against
+   `node_modules/genlayer-js/dist/index.js`'s `_sendTransaction` source,
+   not guessed.
+3. **`lib/chains.ts`'s manually-`defineChain`'d `studionet` is missing
+   `consensusMainContract`** (address + ABI) — required by
+   `writeContract`/`_sendTransaction` (`"Consensus main contract address
+   not found in chain config"` otherwise). `genlayer-js@1.1.8` now
+   exports a real `studionet` from `genlayer-js/chains` with this field
+   populated; `frontend/lib/genlayer.ts` now imports that instead.
+   `lib/chains.ts`'s version is kept only for wagmi/RainbowKit's chain
+   list, which needs a plain viem `Chain`, not GenLayer-specific fields.
+4. **`sync-chain-state` had been failing on every single run since
+   deployment** — two stacked causes, found by manually invoking the
+   function and reading its actual HTTP response body (`net._http_response`
+   / `db query`), not by trusting its "status: ok" response (which only
+   reflected the raw contract read count, not upsert success):
+   - `genlayer-js@0.9.1`'s missing `studionet` export (noted above) meant
+     the function 500'd immediately on every cron tick — **zero rows had
+     ever been mirrored**, from initial deploy through this test.
+   - After fixing that, upserts still failed with `permission denied for
+     table bounties` — **`service_role` had the same missing-GRANT bug as
+     `anon`/`authenticated`** (0003_grants.sql only covered those two
+     roles). Fixed via `0004_service_role_grants.sql`.
+   - Also rewrote the function's entire field-mapping layer
+     (`backend/supabase/functions/sync-chain-state/index.ts`): it had been
+     written against a guessed contract shape before
+     `vertex_bounty_fusion.py` was finalized/deployed and never
+     re-verified afterward. Real differences from what was assumed:
+     `get_submissions(bounty_id)` takes a required bounty id (not a
+     no-arg global list); there is no `get_contribution_graph` flat list
+     — contribution-graph data (`extracted_category`,
+     `influence_weight_bps`, `reward_owed`) lives directly on each
+     `Submission`; amounts are wei-integers needing `weiToGen()`
+     conversion, not GEN-denominated already; `evaluation_criteria` is a
+     comma-separated string needing a split, not an array; submission ids
+     are scoped per-bounty in the contract but the DB column is globally
+     unique, so `chain_submission_id` is now encoded as
+     `bounty_id * 1_000_000 + submission_id`; status names are
+     `"OPEN_FOR_SUBMISSIONS"` etc., mapped via `STATUS_MAP` to the DB
+     enum. Full rationale is in the file's header comment.
+
+Verified with a real end-to-end test: created a bounty via the live UI
+with a connected wallet, confirmed the tx on-chain via `genlayer call
+... get_bounties`, manually invoked `sync-chain-state` and confirmed
+`bounties_upserted: 2, debug_errors: []`, confirmed the rows in
+Postgres via `supabase db query`, and confirmed the bounty renders
+correctly (title, reward, evaluation criteria, empty submissions state)
+on both `/bounties` and the bounty detail page on the live site.
+
+**Not yet tested**: submitting a solution (`SubmissionForm` is still a
+local-state-only placeholder, not wired to `submit_solution`), closing
+submissions/evaluating (`SponsorControls` is still a placeholder), and
+whatever the `sync-chain-state` cron does with a bounty that reaches
+`EVALUATING`/`SETTLED` state (the graph-entry/settlement mapping in
+point 4 above is implemented but unverified against a real evaluated
+bounty — StudioNet's `evaluate_bounty` call involves real LLM/validator
+consensus, not exercised in this session).
 
 ### ❌ Not started / explicitly deferred — these are the real remaining steps
 - **Vercel/production deployment** — nothing has been deployed; Vercel CLI
