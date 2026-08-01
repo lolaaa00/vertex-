@@ -156,6 +156,10 @@ default in production.
    consider the native "Web3 Wallet"
    provider now visible there — see the "Needs verification" note above
    before committing to the current wallet-auth workaround.
+   **Update 2026-08-01**: owner updated GitHub OAuth App homepage URL and
+   X Developer App "User authentication settings" → Website URL to
+   `https://ver-tex.vercel.app` (callback URLs unchanged — those correctly
+   point at Supabase's `/auth/v1/callback`, not the frontend domain).
 4. ✅ **WalletConnect Cloud project ID obtained** —
    `91f607a2a48b565af91c4bb577d4bd53`, already set in `frontend/.env.local`.
 5. ✅ **`.env.local` fully filled in** — `frontend/.env.local` has Supabase
