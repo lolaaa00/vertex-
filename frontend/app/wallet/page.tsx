@@ -7,9 +7,13 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/states/EmptyState";
 import { truncateAddress } from "@/lib/utils";
 
-// TODO: wire to Supabase / GenLayer for real transaction history — mock rows
-// shown until an indexer or Edge Function is available.
-const mockTxHistory = [
+// Deferred: real transaction history needs a per-wallet activity index.
+// The contract's `get_activity` view is scoped per-bounty (see
+// vertex_bounty_fusion.py), not per-wallet, so a global feed here would
+// require either iterating every bounty's activity log client-side or a
+// dedicated Supabase table populated by sync-chain-state. Neither is wired
+// yet — these are illustrative placeholder rows, not live data.
+const placeholderTxHistory = [
   { hash: "0x4a7f1c8e...d291c847", type: "Reward received", amount: "+1,500 GEN", time: "1d ago" },
   { hash: "0x9c31ab02...1120fe45", type: "Bounty funded", amount: "-8,000 GEN", time: "4d ago" },
   { hash: "0x77e2bb90...cc03a1f2", type: "Submission recorded", amount: "0 GEN", time: "6d ago" },
@@ -65,12 +69,12 @@ export default function WalletPage() {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <span className="font-mono text-[.58rem] uppercase tracking-[.2em] text-t3">
-                Transaction History
+                Transaction History (sample data)
               </span>
               <span className="flex-1 h-px bg-gradient-to-r from-wist/[.12] to-transparent" />
             </div>
             <div className="flex flex-col gap-2">
-              {mockTxHistory.map((tx) => (
+              {placeholderTxHistory.map((tx) => (
                 <GlassCard key={tx.hash} className="p-4 flex items-center justify-between gap-4 flex-wrap">
                   <div>
                     <div className="font-display text-sm font-semibold text-t1">{tx.type}</div>

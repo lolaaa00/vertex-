@@ -1,15 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAccount } from "wagmi";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { getBounties, getPlatformStats } from "@/lib/data";
+import { genlayerClient, getGenlayerWriteClient, VERTEX_CONTRACT_ADDRESS, ensureStudioNetwork } from "@/lib/genlayer";
 import type { Bounty, PlatformStats } from "@/lib/types";
 import { formatGen, truncateAddress } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui/Badge";
 
 export default function AdminDashboardPage() {
+  const { address } = useAccount();
+  const [owner, setOwner] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
+  const [pauseBusy, setPauseBusy] = useState(false);
   const [log, setLog] = useState<string[]>([]);
   const [bounties, setBounties] = useState<Bounty[]>([]);
   const [platformStats, setPlatformStats] = useState<PlatformStats | null>(null);
@@ -21,13 +26,50 @@ export default function AdminDashboardPage() {
       setBounties(b);
       setPlatformStats(stats);
     });
+    genlayerClient
+      .readContract({
+        address: VERTEX_CONTRACT_ADDRESS as `0x${string}`,
+        functionName: "get_config",
+        args: [],
+      })
+      .then((config) => {
+        if (cancelled) return;
+        const c = config as { owner: string; paused: boolean };
+        setOwner(c.owner);
+        setPaused(c.paused);
+      });
     return () => {
       cancelled = true;
     };
   }, []);
 
+  const isOwner = !!address && !!owner && address.toLowerCase() === owner.toLowerCase();
+
   function pushLog(msg: string) {
     setLog((l) => [msg, ...l].slice(0, 5));
+  }
+
+  async function handleTogglePause() {
+    if (!address) return;
+    setPauseBusy(true);
+    try {
+      await ensureStudioNetwork();
+      const client = getGenlayerWriteClient(address as `0x${string}`);
+      const hash = await client.writeContract({
+        address: VERTEX_CONTRACT_ADDRESS as `0x${string}`,
+        functionName: paused ? "unpause" : "pause",
+        args: [],
+        value: BigInt(0),
+      });
+      pushLog(`${paused ? "Unpause" : "Pause"} tx submitted: ${hash}`);
+      await client.waitForTransactionReceipt({ hash, status: "ACCEPTED" as never });
+      setPaused((p) => !p);
+      pushLog(`Platform ${paused ? "resumed" : "paused"} on-chain.`);
+    } catch (e) {
+      pushLog(`Failed: ${e instanceof Error ? e.message : "transaction rejected"}`);
+    } finally {
+      setPauseBusy(false);
+    }
   }
 
   return (
@@ -56,17 +98,21 @@ export default function AdminDashboardPage() {
             Pause new bounty creation and submissions platform-wide in an
             emergency.
           </p>
-          <Button
-            variant={paused ? "primary" : "ghost"}
-            className={paused ? "" : "border-rose/30 hover:border-rose/60"}
-            onClick={() => {
-              setPaused((p) => !p);
-              // TODO: wire to GenLayer contract owner-only `set_paused` call.
-              pushLog(paused ? "Requested: unpause platform" : "Requested: pause platform");
-            }}
-          >
-            {paused ? "Resume Platform" : "Pause Platform"}
-          </Button>
+          {!isOwner ? (
+            <p className="text-xs font-mono text-t3">
+              Connect the contract owner wallet{owner ? ` (${truncateAddress(owner, 6)})` : ""} to
+              access this control.
+            </p>
+          ) : (
+            <Button
+              variant={paused ? "primary" : "ghost"}
+              className={paused ? "" : "border-rose/30 hover:border-rose/60"}
+              onClick={handleTogglePause}
+              disabled={pauseBusy}
+            >
+              {pauseBusy ? "Submitting..." : paused ? "Resume Platform" : "Pause Platform"}
+            </Button>
+          )}
         </GlassCard>
 
         <GlassCard className="p-6">
