@@ -184,14 +184,29 @@ Postgres via `supabase db query`, and confirmed the bounty renders
 correctly (title, reward, evaluation criteria, empty submissions state)
 on both `/bounties` and the bounty detail page on the live site.
 
-**Not yet tested**: submitting a solution (`SubmissionForm` is still a
-local-state-only placeholder, not wired to `submit_solution`), closing
-submissions/evaluating (`SponsorControls` is still a placeholder), and
-whatever the `sync-chain-state` cron does with a bounty that reaches
-`EVALUATING`/`SETTLED` state (the graph-entry/settlement mapping in
-point 4 above is implemented but unverified against a real evaluated
-bounty — StudioNet's `evaluate_bounty` call involves real LLM/validator
-consensus, not exercised in this session).
+### Remaining write paths wired (2026-08-01, same session)
+`SubmissionForm` and `SponsorControls` were still local-state-only
+placeholders after the create-bounty flow was fixed — wired both to real
+on-chain writes using the same pattern (`ensureStudioNetwork` +
+`getGenlayerWriteClient`, see `frontend/lib/genlayer.ts`):
+- `SubmissionForm` → `submit_solution(bounty_id, evidence_url, summary)`.
+- `SponsorControls` → two separate real actions matching the contract's
+  actual two-step lifecycle (confirmed by reading
+  `vertex_bounty_fusion.py`, not assumed): `close_submissions(bounty_id)`
+  when `status === "open"`, then `evaluate_bounty(bounty_id)` once
+  `status === "evaluating"`. The old UI had a single combined "Close
+  Submissions & Evaluate" button/TODO that didn't match the contract's
+  real two-call shape.
+- Shared error-message extraction moved to `frontend/lib/errors.ts` (was
+  duplicated inline in `bounties/new/page.tsx`).
+
+**Still not exercised against a real evaluated bounty**: `evaluate_bounty`
+involves real LLM/validator consensus (potentially slow), and the
+`sync-chain-state` graph-entry/settlement mapping written in the fix
+above (point 4) has only been verified for the `open` status case — the
+`evaluating`/`settled` path is implemented but unverified end-to-end.
+Whoever runs the next real evaluation should confirm the Contribution
+Graph page renders correctly against real settled data.
 
 ### ❌ Not started / explicitly deferred — these are the real remaining steps
 - **Vercel/production deployment** — nothing has been deployed; Vercel CLI
