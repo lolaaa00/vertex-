@@ -8,7 +8,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { TransactionStatus } from "genlayer-js/types";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
-import { VERTEX_CONTRACT_ADDRESS, getGenlayerWriteClient } from "@/lib/genlayer";
+import { VERTEX_CONTRACT_ADDRESS, ensureStudioNetwork, getGenlayerWriteClient } from "@/lib/genlayer";
 
 const DEFAULT_CATEGORIES = ["security", "ux", "performance", "recovery", "documentation"];
 
@@ -87,8 +87,8 @@ export default function CreateBountyPage() {
 
     setStatus("pending");
     try {
+      await ensureStudioNetwork();
       const client = getGenlayerWriteClient(address as `0x${string}`);
-      await client.connect("studionet");
 
       const hash = await client.writeContract({
         address: VERTEX_CONTRACT_ADDRESS as `0x${string}`,

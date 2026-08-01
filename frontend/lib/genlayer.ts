@@ -1,5 +1,13 @@
 import { createClient } from "genlayer-js";
-import { studionet } from "./chains";
+import { studionet } from "genlayer-js/chains";
+
+// Use genlayer-js's own `studionet` export (not the manually-defined one in
+// ./chains, which is a plain viem Chain for wagmi/RainbowKit's chain list).
+// GenLayer writes need `consensusMainContract` (address + ABI) present on
+// the chain object — only genlayer-js's native export has it; a bare viem
+// `defineChain` does not, and writeContract fails with "Consensus main
+// contract address not found in chain config" without it. Confirmed via
+// `require('genlayer-js/chains').studionet` after upgrading to 1.1.8.
 
 // The Vertex bounty-fusion contract address, set via
 // NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS. See MEMORY.md for the current
@@ -43,4 +51,49 @@ export function getGenlayerWriteClient(address: `0x${string}`) {
     account: address,
     provider: window.ethereum,
   });
+}
+
+// Switches the connected wallet to StudioNet via plain EIP-3085/3326 calls
+// (wallet_addEthereumChain / wallet_switchEthereumChain). Deliberately does
+// NOT use the SDK's own `client.connect()` helper — that method also tries
+// to install a MetaMask Snap (wallet_getSnaps / wallet_requestSnaps), which
+// throws "Method not found: wallet_getSnaps" on wallets without Snap
+// support (plain MetaMask, Rainbow, Coinbase Wallet, etc.), even though no
+// Snap is actually required for the plain eth_sendTransaction write path
+// genlayer-js uses under the hood. Confirmed by reading
+// node_modules/genlayer-js/dist/index.js's `_sendTransaction`.
+export async function ensureStudioNetwork() {
+  if (typeof window === "undefined" || !window.ethereum) return;
+  const chainIdHex = `0x${studionet.id.toString(16)}`;
+  const currentChainId = (await window.ethereum.request({
+    method: "eth_chainId",
+  })) as string;
+  if (currentChainId?.toLowerCase() === chainIdHex.toLowerCase()) return;
+
+  try {
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: chainIdHex }],
+    });
+  } catch (err) {
+    const code = (err as { code?: number } | null)?.code;
+    if (code === 4902) {
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: chainIdHex,
+            chainName: studionet.name,
+            rpcUrls: studionet.rpcUrls.default.http,
+            nativeCurrency: studionet.nativeCurrency,
+            blockExplorerUrls: studionet.blockExplorers
+              ? [studionet.blockExplorers.default.url]
+              : [],
+          },
+        ],
+      });
+    } else {
+      throw err;
+    }
+  }
 }
