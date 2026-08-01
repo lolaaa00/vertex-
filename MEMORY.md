@@ -170,9 +170,13 @@ default in production.
    Production environment (Preview/Development left unset — add later if
    PR-preview deploys are wanted); `vercel --prod` succeeded (26/26 pages,
    same expected optional-dependency warnings as local). **Canonical URL:
-   https://ver-tex.vercel.app** (aliased via `vercel alias`; the
-   auto-generated `frontend-tau-smoky-34.vercel.app` alias was removed per
-   owner request — don't recreate or reference it). Project-level
+   https://ver-tex.vercel.app** — this is the project's actual primary
+   domain (added + set via the Vercel API's `/v10/projects/{id}/domains`,
+   not just a `vercel alias`, since `vercel alias` alone doesn't change
+   what shows on the dashboard project card). The old auto-generated
+   `frontend-tau-smoky-34.vercel.app` domain was fully deleted from the
+   project (not just un-aliased) per owner request — don't recreate or
+   reference it. Project-level
    `ssoProtection` was disabled via the Vercel API (it defaulted to
    `all_except_custom_domains`, which put a Vercel-login wall in front of
    every `*.vercel.app` alias including the new one) — re-enable
