@@ -78,8 +78,8 @@ export default function AdminDashboardPage() {
         Admin <span className="text-gradient">Dashboard</span>
       </h1>
       <p className="text-t2 mb-8">
-        Owner-only platform controls. Actions here are UI-only until wired to
-        the deployed contract&apos;s owner-gated entrypoints.
+        Owner-only platform controls. The pause toggle below is a real
+        on-chain transaction gated to the contract owner&apos;s wallet.
       </p>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
@@ -121,12 +121,13 @@ export default function AdminDashboardPage() {
           </h2>
           <p className="text-sm text-t2 mb-5">
             Remove a bounty listing that violates platform terms. This does
-            not reverse any settled on-chain payouts.
+            not reverse any settled on-chain payouts. No moderation queue
+            exists yet — this logs a local placeholder action only.
           </p>
           <Button
             variant="ghost"
             className="border-rose/30 hover:border-rose/60"
-            onClick={() => pushLog("Requested: flag bounty for moderation review")}
+            onClick={() => pushLog("Logged locally (no moderation backend yet): flag bounty for review")}
           >
             Flag a Bounty for Review
           </Button>
