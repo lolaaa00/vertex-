@@ -9,23 +9,9 @@ import { TransactionStatus } from "genlayer-js/types";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { VERTEX_CONTRACT_ADDRESS, ensureStudioNetwork, getGenlayerWriteClient } from "@/lib/genlayer";
+import { extractErrorMessage } from "@/lib/errors";
 
 const DEFAULT_CATEGORIES = ["security", "ux", "performance", "recovery", "documentation"];
-
-function extractErrorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "object" && err !== null) {
-    const obj = err as Record<string, unknown>;
-    const candidate = obj.shortMessage ?? obj.reason ?? obj.message ?? obj.error;
-    if (typeof candidate === "string") return candidate;
-    try {
-      return JSON.stringify(err);
-    } catch {
-      // fall through
-    }
-  }
-  return "Transaction failed. Check the browser console for details.";
-}
 
 export default function CreateBountyPage() {
   const router = useRouter();

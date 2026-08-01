@@ -80,7 +80,7 @@ export default async function BountyDetailPage({ params }: { params: { id: strin
       )}
 
       <div id="submit" className="grid md:grid-cols-2 gap-6">
-        {bounty.status === "open" && <SubmissionForm bountyId={bounty.id} />}
+        {bounty.status === "open" && <SubmissionForm chainBountyId={bounty.chainBountyId} />}
         <SponsorControls bounty={bounty} />
       </div>
     </div>
