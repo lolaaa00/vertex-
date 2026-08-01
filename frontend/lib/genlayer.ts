@@ -16,27 +16,31 @@ if (!VERTEX_CONTRACT_ADDRESS) {
   );
 }
 
-// Read-only GenLayer client for StudioNet. No account/signer is attached here
-// — writes (submitting solutions, closing bounties, triggering evaluation)
-// happen through user-signed transactions built alongside the connected
-// wallet in the wagmi/RainbowKit layer, not through this shared client.
+// Read-only GenLayer client for StudioNet. No account/signer is attached
+// here — bounty/submission/contribution-graph reads go through the Supabase
+// mirror (lib/data.ts), kept in sync by backend/supabase/functions/
+// sync-chain-state. This client is for direct on-chain reads only (e.g.
+// verifying a just-submitted write before the ~1min sync cron catches up).
 export const genlayerClient = createClient({
   chain: studionet,
   ...(rpcUrl ? { endpoint: rpcUrl } : {}),
 });
 
-/**
- * Reads bounty + contribution-graph state from the Vertex Intelligent
- * Contract. Stubbed until the contract address is provided — callers should
- * treat a null return as "not yet wired" and render TODO/placeholder UI,
- * never a fabricated success state.
- *
- * TODO: wire to `intelligent-contract/contracts/vertex_bounty_fusion.py`
- * once deployed — replace with a real `genlayerClient.readContract(...)` call
- * against VERTEX_CONTRACT_ADDRESS.
- */
-export async function getBountyOnChainState(_bountyId: string) {
-  if (!VERTEX_CONTRACT_ADDRESS) return null;
-  // TODO: wire to GenLayer contract read.
-  return null;
+// Write client factory — signs transactions through the connected browser
+// wallet. Built per-call (not at module load) since the wallet address is
+// only known once the user has connected via RainbowKit/wagmi. Verified
+// against https://docs.genlayer.com/api-references/genlayer-js
+// ("Using with a wallet provider (MetaMask)").
+export function getGenlayerWriteClient(address: `0x${string}`) {
+  if (typeof window === "undefined" || !window.ethereum) {
+    throw new Error(
+      "No wallet provider found (window.ethereum) — connect a wallet before submitting a transaction."
+    );
+  }
+  return createClient({
+    chain: studionet,
+    ...(rpcUrl ? { endpoint: rpcUrl } : {}),
+    account: address,
+    provider: window.ethereum,
+  });
 }

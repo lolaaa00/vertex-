@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BountyCard } from "@/components/bounty/BountyCard";
+import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/states/EmptyState";
 import { getBounties, getSubmissionCounts } from "@/lib/data";
 import type { Bounty, BountyStatus } from "@/lib/types";
@@ -53,9 +54,12 @@ export default function BountyExplorerPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <h1 className="font-display text-3xl md:text-4xl font-bold tracking-tight mb-2">
-        Bounty <span className="text-gradient">Explorer</span>
-      </h1>
+      <div className="flex items-start justify-between gap-4 flex-wrap mb-2">
+        <h1 className="font-display text-3xl md:text-4xl font-bold tracking-tight">
+          Bounty <span className="text-gradient">Explorer</span>
+        </h1>
+        <ButtonLink href="/bounties/new">+ Sponsor a Bounty</ButtonLink>
+      </div>
       <p className="text-t2 mb-8">
         Every bounty here pays out by verified contribution, not a single
         winner-take-all vote.
