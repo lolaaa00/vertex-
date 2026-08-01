@@ -146,7 +146,14 @@ default in production.
    `https://amnzbzwppazcqkwuuzhy.supabase.co/auth/v1/callback` for both.
    "Allow manual linking" also enabled (required for `linkIdentity()` per
    `backend/README.md`). Client secrets live only in the Supabase dashboard —
-   not stored in any repo file. Note: also consider the native "Web3 Wallet"
+   not stored in any repo file. **Also set (2026-08-01) Authentication → URL
+   Configuration**: Site URL = `https://ver-tex.vercel.app` (was defaulted
+   to `http://localhost:3000`, which would have broken OAuth/magic-link
+   redirects on the live site); Redirect URLs allowlist =
+   `https://ver-tex.vercel.app/**` and `http://localhost:3000/**` (both
+   prod and local dev covered). This was previously an unnoticed gap —
+   worth double-checking after any future domain change. Note: also
+   consider the native "Web3 Wallet"
    provider now visible there — see the "Needs verification" note above
    before committing to the current wallet-auth workaround.
 4. ✅ **WalletConnect Cloud project ID obtained** —
