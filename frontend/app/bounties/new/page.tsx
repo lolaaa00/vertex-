@@ -12,6 +12,21 @@ import { VERTEX_CONTRACT_ADDRESS, getGenlayerWriteClient } from "@/lib/genlayer"
 
 const DEFAULT_CATEGORIES = ["security", "ux", "performance", "recovery", "documentation"];
 
+function extractErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "object" && err !== null) {
+    const obj = err as Record<string, unknown>;
+    const candidate = obj.shortMessage ?? obj.reason ?? obj.message ?? obj.error;
+    if (typeof candidate === "string") return candidate;
+    try {
+      return JSON.stringify(err);
+    } catch {
+      // fall through
+    }
+  }
+  return "Transaction failed. Check the browser console for details.";
+}
+
 export default function CreateBountyPage() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
@@ -98,7 +113,9 @@ export default function CreateBountyPage() {
       setStatus("success");
     } catch (err) {
       setStatus("error");
-      setError(err instanceof Error ? err.message : "Transaction failed.");
+      // eslint-disable-next-line no-console
+      console.error("[bounties/new] create_bounty failed:", err);
+      setError(extractErrorMessage(err));
     }
   }
 
