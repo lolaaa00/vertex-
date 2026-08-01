@@ -1,37 +1,106 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { truncateAddress } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 type LinkedAccount = "github" | "x";
+
+const FUNCTIONS_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}/functions/v1`;
+
+// Supabase's OAuth provider id for X/Twitter is "twitter" even though the
+// product is named X — see backend/supabase/functions/link-social.
+const SUPABASE_PROVIDER: Record<LinkedAccount, "github" | "twitter"> = {
+  github: "github",
+  x: "twitter",
+};
 
 export default function AuthPage() {
   const { address, isConnected } = useAccount();
   const { signMessageAsync, isPending } = useSignMessage();
   const [signedIn, setSignedIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [linking, setLinking] = useState<LinkedAccount | null>(null);
   const [linked, setLinked] = useState<Record<LinkedAccount, boolean>>({
     github: false,
     x: false,
   });
 
+  // Detect an existing session on mount (covers the redirect back from an
+  // OAuth linking round trip) and record any newly-linked identity.
+  useEffect(() => {
+    async function syncSession() {
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
+      if (!session) return;
+      setSignedIn(true);
+      const identities = session.user.identities ?? [];
+      setLinked({
+        github: identities.some((i) => i.provider === "github"),
+        x: identities.some((i) => i.provider === "twitter"),
+      });
+      // Persist the verified identity into social_connections (idempotent —
+      // no-op if there's nothing new to record).
+      await fetch(`${FUNCTIONS_URL}/link-social`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+    }
+    syncSession();
+  }, []);
+
   async function handleSignIn() {
     if (!address) return;
     setError(null);
     try {
-      // SIWE-style challenge. TODO: replace this static message with a
-      // server-issued SIWE message (domain, nonce, issued-at) from a
-      // Supabase Edge Function, then POST the signature back for
-      // verification per MEMORY.md's wallet-only auth decision.
-      const message = `Sign in to Vertex\n\nWallet: ${address}\nTimestamp: ${new Date().toISOString()}`;
-      await signMessageAsync({ message });
+      const nonceRes = await fetch(`${FUNCTIONS_URL}/wallet-auth`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "nonce", address }),
+      });
+      const nonceData = await nonceRes.json();
+      if (!nonceRes.ok) throw new Error(nonceData.error ?? "failed to get sign-in challenge");
+
+      const signature = await signMessageAsync({ message: nonceData.message });
+
+      const verifyRes = await fetch(`${FUNCTIONS_URL}/wallet-auth`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify", address, signature, message: nonceData.message }),
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok) throw new Error(verifyData.error ?? "signature verification failed");
+
+      const { error: otpError } = await supabase.auth.verifyOtp({
+        email: verifyData.email,
+        token: verifyData.hashed_token,
+        type: "email",
+      });
+      if (otpError) throw otpError;
+
       setSignedIn(true);
     } catch (e) {
-      setError("Signature request was rejected or failed.");
+      setError(e instanceof Error ? e.message : "Signature request was rejected or failed.");
+    }
+  }
+
+  async function handleLink(account: LinkedAccount) {
+    setLinking(account);
+    setError(null);
+    try {
+      const { error: linkError } = await supabase.auth.linkIdentity({
+        provider: SUPABASE_PROVIDER[account],
+        options: { redirectTo: `${window.location.origin}/auth` },
+      });
+      if (linkError) throw linkError;
+      // linkIdentity redirects the browser away — nothing further runs here.
+    } catch (e) {
+      setError(e instanceof Error ? e.message : `Failed to link ${account}.`);
+      setLinking(null);
     }
   }
 
@@ -73,24 +142,17 @@ export default function AuthPage() {
           <div className="mt-3 flex flex-col sm:flex-row gap-3">
             <Button
               variant="ghost"
-              disabled={!signedIn}
-              onClick={() => {
-                // TODO: wire to Supabase OAuth connect flow (GitHub provider),
-                // not a typed username field — see MEMORY.md's anti-impersonation decision.
-                setLinked((l) => ({ ...l, github: !l.github }));
-              }}
+              disabled={!signedIn || linked.github || linking !== null}
+              onClick={() => handleLink("github")}
             >
-              {linked.github ? "GitHub Linked ✓" : "Link GitHub"}
+              {linked.github ? "GitHub Linked ✓" : linking === "github" ? "Redirecting..." : "Link GitHub"}
             </Button>
             <Button
               variant="ghost"
-              disabled={!signedIn}
-              onClick={() => {
-                // TODO: wire to Supabase OAuth connect flow (X/Twitter provider).
-                setLinked((l) => ({ ...l, x: !l.x }));
-              }}
+              disabled={!signedIn || linked.x || linking !== null}
+              onClick={() => handleLink("x")}
             >
-              {linked.x ? "X Linked ✓" : "Link X"}
+              {linked.x ? "X Linked ✓" : linking === "x" ? "Redirecting..." : "Link X"}
             </Button>
           </div>
         </Step>
