@@ -165,10 +165,21 @@ default in production.
    browser against the real env vars above: landing page renders with the
    "GenLayer StudioNet" badge and Connect Wallet button, `/bounties` (Bounty
    Explorer) renders correctly, no console or server errors.
-7. **Deploy**: `vercel --prod` for the frontend (Vercel CLI already
-   installed). The backend needs no separate deploy step — Supabase Edge
-   Functions + Cron are the entire "backend," which is what makes it
-   structurally impossible for it to go down (no server process to crash).
+7. ✅ **Deployed (2026-07-30/31)** — `vercel link` created project
+   `lolaas-projects/frontend`; all 5 `NEXT_PUBLIC_*` env vars set for the
+   Production environment (Preview/Development left unset — add later if
+   PR-preview deploys are wanted); `vercel --prod` succeeded (26/26 pages,
+   same expected optional-dependency warnings as local). **Live at
+   https://frontend-tau-smoky-34.vercel.app** — verified in-browser,
+   landing page renders correctly, zero console errors. The backend needed
+   no separate deploy step — Supabase Edge Functions + Cron are the entire
+   "backend," which is what makes it structurally impossible for it to go
+   down (no server process to crash).
+
+**All 7 NEXT_STEPS are now complete.** Remaining open items are the
+"Needs verification" and deferred items noted above (native Web3 Wallet
+auth migration, `genlayer-chain` studionet preset check, wiring frontend
+mock data to real Supabase data).
 
 ## ALL REQUIRED KEYS / SECRETS (every one is currently a placeholder)
 

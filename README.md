@@ -39,7 +39,7 @@ vertex/
 | Intelligent Contract | ✅ Written, tested, **deployed and verified working** on GenLayer StudioNet (owner-controlled instance) |
 | Frontend | ✅ All pages built, visually verified against real env vars, production build passes |
 | Backend | ✅ Live Supabase project: schema pushed, Edge Functions deployed, cron active, GitHub + X OAuth enabled |
-| Deployment | 🟡 Nothing pushed to Vercel yet |
+| Deployment | ✅ Live on Vercel: https://frontend-tau-smoky-34.vercel.app |
 
 See `MEMORY.md` → "HANDOFF STATUS" and "NEXT STEPS" for the exact remaining
 checklist and every key/secret required.
