@@ -169,12 +169,18 @@ default in production.
    `lolaas-projects/frontend`; all 5 `NEXT_PUBLIC_*` env vars set for the
    Production environment (Preview/Development left unset — add later if
    PR-preview deploys are wanted); `vercel --prod` succeeded (26/26 pages,
-   same expected optional-dependency warnings as local). **Live at
-   https://frontend-tau-smoky-34.vercel.app** — verified in-browser,
-   landing page renders correctly, zero console errors. The backend needed
-   no separate deploy step — Supabase Edge Functions + Cron are the entire
-   "backend," which is what makes it structurally impossible for it to go
-   down (no server process to crash).
+   same expected optional-dependency warnings as local). **Canonical URL:
+   https://ver-tex.vercel.app** (aliased via `vercel alias`; the
+   auto-generated `frontend-tau-smoky-34.vercel.app` alias was removed per
+   owner request — don't recreate or reference it). Project-level
+   `ssoProtection` was disabled via the Vercel API (it defaulted to
+   `all_except_custom_domains`, which put a Vercel-login wall in front of
+   every `*.vercel.app` alias including the new one) — re-enable
+   deliberately later if you want deployment protection back. Verified
+   in-browser: landing page renders correctly, zero console errors. The
+   backend needed no separate deploy step — Supabase Edge Functions + Cron
+   are the entire "backend," which is what makes it structurally impossible
+   for it to go down (no server process to crash).
 
 **All 7 NEXT_STEPS are now complete.** Remaining open items are the
 "Needs verification" and deferred items noted above (native Web3 Wallet
