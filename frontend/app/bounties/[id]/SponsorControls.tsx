@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAccount } from "wagmi";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
-import type { Bounty } from "@/lib/mockData";
+import type { Bounty } from "@/lib/types";
 
 export function SponsorControls({ bounty }: { bounty: Bounty }) {
   const { address } = useAccount();

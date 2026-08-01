@@ -3,20 +3,24 @@ import { ContributionGraph } from "@/components/graph/ContributionGraph";
 import { RewardBars } from "@/components/graph/RewardBars";
 import { TxFooterStrip } from "@/components/graph/TxFooterStrip";
 import { EmptyState } from "@/components/states/EmptyState";
-import { bounties, contributionGraph, settlementDetails } from "@/lib/mockData";
+import { getBounty, getContributionGraphForBounty } from "@/lib/data";
+import { VERTEX_CONTRACT_ADDRESS } from "@/lib/genlayer";
+import { truncateAddress } from "@/lib/utils";
 
-export function generateStaticParams() {
-  return bounties.map((b) => ({ id: b.id }));
-}
+export const dynamic = "force-dynamic";
 
-export default function ContributionGraphPage({ params }: { params: { id: string } }) {
-  const bounty = bounties.find((b) => b.id === params.id);
+export default async function ContributionGraphPage({ params }: { params: { id: string } }) {
+  const bounty = await getBounty(params.id);
   if (!bounty) notFound();
 
-  // TODO: wire to lib/genlayer.ts getBountyOnChainState(bounty.id) — falling
-  // back to mock data until the contract address is set. Only did-platform
-  // has a completed evaluation in this mock dataset.
-  const graphNodes = bounty.id === "did-platform" ? contributionGraph : [];
+  const graphNodes = await getContributionGraphForBounty(bounty.id);
+  const settledEntry = graphNodes.find((n) => n.txHashSettled);
+  const settlementDetails = {
+    settlementTx: settledEntry?.txHashSettled ?? "Pending",
+    block: "GenLayer StudioNet",
+    contract: truncateAddress(VERTEX_CONTRACT_ADDRESS || "Not configured", 6),
+    consensus: settledEntry ? "GenLayer validator consensus" : "Not yet evaluated",
+  };
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -40,7 +44,7 @@ export default function ContributionGraphPage({ params }: { params: { id: string
         <>
           <ContributionGraph nodes={graphNodes} />
           <RewardBars nodes={graphNodes} />
-          <TxFooterStrip {...settlementDetails} />
+          {settledEntry && <TxFooterStrip {...settlementDetails} />}
         </>
       )}
     </div>

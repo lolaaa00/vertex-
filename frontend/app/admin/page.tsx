@@ -1,15 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
-import { bounties, platformStats } from "@/lib/mockData";
-import { formatGen } from "@/lib/utils";
+import { getBounties, getPlatformStats } from "@/lib/data";
+import type { Bounty, PlatformStats } from "@/lib/types";
+import { formatGen, truncateAddress } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui/Badge";
 
 export default function AdminDashboardPage() {
   const [paused, setPaused] = useState(false);
   const [log, setLog] = useState<string[]>([]);
+  const [bounties, setBounties] = useState<Bounty[]>([]);
+  const [platformStats, setPlatformStats] = useState<PlatformStats | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getBounties(), getPlatformStats()]).then(([b, stats]) => {
+      if (cancelled) return;
+      setBounties(b);
+      setPlatformStats(stats);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function pushLog(msg: string) {
     setLog((l) => [msg, ...l].slice(0, 5));
@@ -26,10 +41,10 @@ export default function AdminDashboardPage() {
       </p>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        <Stat label="Total Bounties" value={String(platformStats.totalBounties)} />
-        <Stat label="GEN Distributed" value={formatGen(platformStats.totalGenDistributed)} />
-        <Stat label="Contributors" value={String(platformStats.totalContributors)} />
-        <Stat label="Active Bounties" value={String(platformStats.activeBounties)} />
+        <Stat label="Total Bounties" value={String(platformStats?.totalBounties ?? 0)} />
+        <Stat label="GEN Distributed" value={formatGen(platformStats?.totalGenDistributed ?? 0)} />
+        <Stat label="Contributors" value={String(platformStats?.totalContributors ?? 0)} />
+        <Stat label="Settled Bounties" value={String(platformStats?.totalBountiesSettled ?? 0)} />
       </div>
 
       <div className="grid md:grid-cols-2 gap-6 mb-10">
@@ -84,11 +99,11 @@ export default function AdminDashboardPage() {
             <GlassCard key={b.id} className="p-4 flex items-center justify-between gap-4 flex-wrap">
               <div>
                 <div className="font-display text-sm font-semibold text-t1">{b.title}</div>
-                <div className="font-mono text-[.65rem] text-t3">{b.sponsor}</div>
+                <div className="font-mono text-[.65rem] text-t3">{truncateAddress(b.sponsorWallet, 6)}</div>
               </div>
               <div className="flex items-center gap-3">
                 <StatusBadge status={b.status} />
-                <span className="font-mono text-xs text-t2">{formatGen(b.prizeGen)} GEN</span>
+                <span className="font-mono text-xs text-t2">{formatGen(b.rewardPoolGen)} GEN</span>
               </div>
             </GlassCard>
           ))}

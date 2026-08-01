@@ -7,27 +7,25 @@ import { SubmissionCard } from "@/components/bounty/SubmissionCard";
 import { SubmissionForm } from "@/components/bounty/SubmissionForm";
 import { EmptyState } from "@/components/states/EmptyState";
 import { SponsorControls } from "@/app/bounties/[id]/SponsorControls";
-import { bounties, submissions } from "@/lib/mockData";
+import { getBounty, getSubmissionsForBounty } from "@/lib/data";
 import { formatGen } from "@/lib/utils";
 
-export function generateStaticParams() {
-  return bounties.map((b) => ({ id: b.id }));
-}
+export const dynamic = "force-dynamic";
 
-export default function BountyDetailPage({ params }: { params: { id: string } }) {
-  const bounty = bounties.find((b) => b.id === params.id);
+export default async function BountyDetailPage({ params }: { params: { id: string } }) {
+  const bounty = await getBounty(params.id);
   if (!bounty) notFound();
 
-  const bountySubmissions = submissions.filter((s) => s.bountyId === bounty.id);
+  const bountySubmissions = await getSubmissionsForBounty(bounty.id);
 
   return (
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center gap-3 mb-3 flex-wrap">
         <StatusBadge status={bounty.status} />
         <span className="font-mono text-sm font-medium text-alice bg-wist/[.06] border border-wist/15 px-3.5 py-1.5 rounded-lg">
-          {formatGen(bounty.prizeGen)} GEN
+          {formatGen(bounty.rewardPoolGen)} GEN
         </span>
-        {bounty.status === "complete" && (
+        {bounty.status === "settled" && (
           <Link
             href={`/bounties/${bounty.id}/graph`}
             className="font-mono text-[.65rem] uppercase tracking-[.14em] text-wist underline decoration-wist/40 underline-offset-4 hover:text-alice focus-visible:outline focus-visible:outline-2 focus-visible:outline-wist"

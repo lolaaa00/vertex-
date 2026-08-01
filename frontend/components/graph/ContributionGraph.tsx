@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { CONTRIBUTOR_COLORS, type ContributionGraphNode } from "@/lib/mockData";
+import { useEffect, useState } from "react";
+import { CONTRIBUTOR_COLORS, avatarLetterForWallet, colorKeyForWallet } from "@/lib/colors";
+import { truncateAddress } from "@/lib/utils";
+import type { ContributionGraphEntry } from "@/lib/types";
 
 const strokeByKey: Record<string, string> = {
   a: "rgba(106,77,212,.35)",
@@ -30,7 +32,7 @@ const positions = [
   { x: 50, y: 11.5 }, // top-center
 ];
 
-export function ContributionGraph({ nodes }: { nodes: ContributionGraphNode[] }) {
+export function ContributionGraph({ nodes }: { nodes: ContributionGraphEntry[] }) {
   const [built, setBuilt] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -47,7 +49,10 @@ export function ContributionGraph({ nodes }: { nodes: ContributionGraphNode[] })
       className="relative w-full h-[min(520px,60vh)] rounded-3xl border border-wist/10 bg-prus2/45 backdrop-blur-xl overflow-hidden mb-8"
       role="img"
       aria-label={`Contribution graph: ${nodes
-        .map((n) => `${n.contributor.name} contributed ${n.pct}% in ${n.contributor.category}`)
+        .map(
+          (n) =>
+            `${truncateAddress(n.contributorWallet, 6)} contributed ${(n.influenceWeightBps / 100).toFixed(1)}% in ${n.category}`
+        )
         .join(", ")}, all merged into the final solution.`}
     >
       <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-maj to-vel motion-safe:animate-shimmer bg-[length:200%_auto]" aria-hidden="true" />
@@ -57,14 +62,15 @@ export function ContributionGraph({ nodes }: { nodes: ContributionGraphNode[] })
           const pos = positions[i % positions.length];
           const x1 = (pos.x / 100) * 1100;
           const y1 = (pos.y / 100) * 520;
+          const colorKey = colorKeyForWallet(n.contributorWallet);
           return (
             <line
-              key={n.contributor.id}
+              key={n.id}
               x1={x1}
               y1={y1}
               x2={550}
               y2={260}
-              stroke={strokeByKey[n.contributor.colorKey]}
+              stroke={strokeByKey[colorKey]}
               strokeWidth={Math.max(1.5, (5 - i) * 0.8)}
               className="transition-opacity duration-700"
               style={{ opacity: built ? 1 : 0 }}
@@ -91,11 +97,13 @@ export function ContributionGraph({ nodes }: { nodes: ContributionGraphNode[] })
 
       {nodes.map((n, i) => {
         const pos = positions[i % positions.length];
-        const colors = CONTRIBUTOR_COLORS[n.contributor.colorKey];
+        const colorKey = colorKeyForWallet(n.contributorWallet);
+        const colors = CONTRIBUTOR_COLORS[colorKey];
         const delay = reduceMotion ? 0 : 500 + i * 250;
+        const pct = n.influenceWeightBps / 100;
         return (
           <div
-            key={n.contributor.id}
+            key={n.id}
             className="absolute z-[5] min-w-[140px] rounded-2xl border border-wist/[.12] bg-prus/[.88] backdrop-blur-md text-center px-5 py-4 transition-all"
             style={{
               left: `${pos.x}%`,
@@ -111,14 +119,14 @@ export function ContributionGraph({ nodes }: { nodes: ContributionGraphNode[] })
               className={`h-9 w-9 rounded-[10px] grid place-items-center font-display text-xs font-bold mx-auto mb-2 border ${colors.bg} ${colors.border} ${colors.text}`}
               aria-hidden="true"
             >
-              {n.contributor.avatarLetter}
+              {avatarLetterForWallet(n.contributorWallet)}
             </div>
-            <div className="font-display text-[.8125rem] font-semibold">{n.contributor.name}</div>
+            <div className="font-mono text-[.7rem] font-semibold">{truncateAddress(n.contributorWallet, 4)}</div>
             <div className="font-mono text-[.52rem] uppercase tracking-[.1em] text-t3 mb-1">
-              {n.contributor.category}
+              {n.category}
             </div>
-            <div className="font-mono text-base font-medium" style={{ color: pctColorByKey[n.contributor.colorKey] }}>
-              {n.pct}%
+            <div className="font-mono text-base font-medium" style={{ color: pctColorByKey[colorKey] }}>
+              {pct.toFixed(1)}%
             </div>
           </div>
         );

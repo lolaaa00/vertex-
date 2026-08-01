@@ -1,10 +1,16 @@
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { platformStats } from "@/lib/mockData";
+import { getOpenBountyCount, getPlatformStats } from "@/lib/data";
 import { formatGen } from "@/lib/utils";
 
-export default function LandingPage() {
+export const dynamic = "force-dynamic";
+
+export default async function LandingPage() {
+  const [platformStats, activeBounties] = await Promise.all([
+    getPlatformStats(),
+    getOpenBountyCount(),
+  ]);
   return (
     <div className="flex flex-col items-center text-center max-w-5xl mx-auto">
       <div
@@ -104,7 +110,7 @@ export default function LandingPage() {
 
       <div className="flex flex-wrap gap-3.5 justify-center mb-14">
         <ButtonLink href="/bounties">Explore a Bounty &#8594;</ButtonLink>
-        <ButtonLink href="/bounties/did-platform/graph" variant="ghost">
+        <ButtonLink href="/bounties" variant="ghost">
           See Contribution Graph
         </ButtonLink>
       </div>
@@ -113,7 +119,7 @@ export default function LandingPage() {
         <Stat value={`${formatGen(platformStats.totalGenDistributed)}`} label="GEN Distributed" />
         <Stat value={String(platformStats.totalContributors)} label="Contributors" />
         <Stat value={String(platformStats.totalBounties)} label="Bounties" />
-        <Stat value={String(platformStats.activeBounties)} label="Open Now" />
+        <Stat value={String(activeBounties)} label="Open Now" />
       </div>
     </div>
   );

@@ -27,15 +27,31 @@ export function Badge({
   );
 }
 
-const statusStyles: Record<string, string> = {
+export type BountyStatus =
+  | "open"
+  | "submissions_closed"
+  | "evaluating"
+  | "settled"
+  | "cancelled";
+
+const statusStyles: Record<BountyStatus, string> = {
   open: "text-vgreen2 bg-vgreen/[.07] border-vgreen/20",
+  submissions_closed: "text-amber2 bg-amber/[.07] border-amber/20",
   evaluating: "text-amber2 bg-amber/[.07] border-amber/20",
-  complete: "text-wist bg-maj/[.08] border-maj/20",
+  settled: "text-wist bg-maj/[.08] border-maj/20",
+  cancelled: "text-t3 bg-wist/[.04] border-wist/15",
 };
 
-export function StatusBadge({ status }: { status: "open" | "evaluating" | "complete" }) {
-  const label =
-    status === "open" ? "Open" : status === "evaluating" ? "Evaluating" : "Evaluation Complete";
+const statusLabels: Record<BountyStatus, string> = {
+  open: "Open",
+  submissions_closed: "Submissions Closed",
+  evaluating: "Evaluating",
+  settled: "Evaluation Complete",
+  cancelled: "Cancelled",
+};
+
+export function StatusBadge({ status }: { status: BountyStatus }) {
+  const label = statusLabels[status];
   return (
     <span
       className={cn(

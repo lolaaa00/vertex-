@@ -1,29 +1,31 @@
-import { notFound } from "next/navigation";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { EmptyState } from "@/components/states/EmptyState";
-import { CONTRIBUTOR_COLORS, contributionGraph, contributors, submissions } from "@/lib/mockData";
+import { CONTRIBUTOR_COLORS, avatarLetterForWallet, colorKeyForWallet } from "@/lib/colors";
+import {
+  getContributionGraphByContributor,
+  getProfileByWallet,
+  getSocialConnections,
+  getSubmissionsByContributor,
+} from "@/lib/data";
 import { formatGen, truncateAddress } from "@/lib/utils";
 
-export function generateStaticParams() {
-  return contributors.map((c) => ({ wallet: c.wallet }));
-}
+export const dynamic = "force-dynamic";
 
-export default function ProfilePage({ params }: { params: { wallet: string } }) {
-  const contributor = contributors.find(
-    (c) => c.wallet.toLowerCase() === decodeURIComponent(params.wallet).toLowerCase()
-  );
-  if (!contributor) notFound();
+export default async function ProfilePage({ params }: { params: { wallet: string } }) {
+  const wallet = decodeURIComponent(params.wallet);
+  const [profile, mySubmissions, myGraphEntries] = await Promise.all([
+    getProfileByWallet(wallet),
+    getSubmissionsByContributor(wallet),
+    getContributionGraphByContributor(wallet),
+  ]);
+  const socials = profile ? await getSocialConnections(profile.id) : [];
 
-  const colors = CONTRIBUTOR_COLORS[contributor.colorKey];
-  const mySubmissions = submissions.filter((s) => s.contributor.id === contributor.id);
-  const myGraphEntries = contributionGraph.filter((n) => n.contributor.id === contributor.id);
-  const totalEarned = myGraphEntries.reduce((sum, n) => sum + n.rewardGen, 0);
-
-  // Categories the contributor "excels in", derived from past
-  // contribution-graph entries. TODO: wire to a real aggregation across all
-  // of this contributor's settled contribution-graph rows once Supabase +
-  // the GenLayer contract are live — this only reflects the mock dataset.
-  const categories = Array.from(new Set(myGraphEntries.map((n) => n.contributor.category)));
+  const colorKey = colorKeyForWallet(wallet);
+  const colors = CONTRIBUTOR_COLORS[colorKey];
+  const totalEarned = myGraphEntries.reduce((sum, n) => sum + n.rewardOwedGen, 0);
+  const categories = Array.from(new Set(myGraphEntries.map((n) => n.category)));
+  const github = socials.find((s) => s.provider === "github");
+  const x = socials.find((s) => s.provider === "x");
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -33,28 +35,28 @@ export default function ProfilePage({ params }: { params: { wallet: string } }) 
             className={`h-16 w-16 rounded-2xl grid place-items-center font-display text-xl font-bold border shrink-0 ${colors.bg} ${colors.border} ${colors.text}`}
             aria-hidden="true"
           >
-            {contributor.avatarLetter}
+            {avatarLetterForWallet(wallet)}
           </div>
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight text-t1">
-              {contributor.name}
+              {profile?.displayName || truncateAddress(wallet, 6)}
             </h1>
-            <p className="font-mono text-xs text-t3">{truncateAddress(contributor.wallet, 6)}</p>
+            <p className="font-mono text-xs text-t3">{truncateAddress(wallet, 6)}</p>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2 mt-5">
-          {contributor.githubHandle && (
+          {github && (
             <span className="font-mono text-[.65rem] rounded-full border border-wist/20 bg-wist/[.05] px-3 py-1 text-t2">
-              GitHub · {contributor.githubHandle}
+              GitHub · {github.providerUsername}
             </span>
           )}
-          {contributor.xHandle && (
+          {x && (
             <span className="font-mono text-[.65rem] rounded-full border border-wist/20 bg-wist/[.05] px-3 py-1 text-t2">
-              X · @{contributor.xHandle}
+              X · @{x.providerUsername}
             </span>
           )}
-          {!contributor.githubHandle && !contributor.xHandle && (
+          {!github && !x && (
             <span className="font-mono text-[.65rem] text-t3">No linked socials.</span>
           )}
         </div>
@@ -101,10 +103,7 @@ export default function ProfilePage({ params }: { params: { wallet: string } }) 
           <div className="flex flex-col gap-2">
             {mySubmissions.map((s) => (
               <GlassCard key={s.id} className="p-4">
-                <div className="font-mono text-[.6rem] uppercase tracking-[.1em] text-wist mb-1">
-                  {s.category}
-                </div>
-                <p className="text-sm text-t2">{s.excerpt}</p>
+                <p className="text-sm text-t2">{s.summary}</p>
               </GlassCard>
             ))}
           </div>

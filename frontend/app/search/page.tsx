@@ -1,38 +1,44 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { EmptyState } from "@/components/states/EmptyState";
 import { StatusBadge } from "@/components/ui/Badge";
-import { bounties, contributors } from "@/lib/mockData";
+import { searchBounties, searchProfiles } from "@/lib/data";
+import type { Bounty, Profile } from "@/lib/types";
 import { truncateAddress } from "@/lib/utils";
 
 export default function SearchPage() {
   const [query, setQuery] = useState("");
+  const [matchedBounties, setMatchedBounties] = useState<Bounty[]>([]);
+  const [matchedProfiles, setMatchedProfiles] = useState<Profile[]>([]);
+  const [searching, setSearching] = useState(false);
 
-  const matchedBounties = useMemo(
-    () =>
-      query.trim() === ""
-        ? []
-        : bounties.filter((b) => b.title.toLowerCase().includes(query.toLowerCase())),
-    [query]
-  );
-
-  const matchedContributors = useMemo(
-    () =>
-      query.trim() === ""
-        ? []
-        : contributors.filter(
-            (c) =>
-              c.name.toLowerCase().includes(query.toLowerCase()) ||
-              c.category.toLowerCase().includes(query.toLowerCase())
-          ),
-    [query]
-  );
+  useEffect(() => {
+    if (query.trim() === "") {
+      setMatchedBounties([]);
+      setMatchedProfiles([]);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(() => {
+      Promise.all([searchBounties(query), searchProfiles(query)]).then(([b, p]) => {
+        if (cancelled) return;
+        setMatchedBounties(b);
+        setMatchedProfiles(p);
+        setSearching(false);
+      });
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query]);
 
   const hasQuery = query.trim() !== "";
-  const hasResults = matchedBounties.length > 0 || matchedContributors.length > 0;
+  const hasResults = matchedBounties.length > 0 || matchedProfiles.length > 0;
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -58,12 +64,11 @@ export default function SearchPage() {
 
       {!hasQuery && (
         <p className="text-center text-t3 text-sm font-mono">
-          Start typing to search — TODO: wire to a real full-text index
-          (Supabase `pg_trgm`/`tsvector`) once the backend is live.
+          Start typing to search bounties and contributor profiles.
         </p>
       )}
 
-      {hasQuery && !hasResults && (
+      {hasQuery && !searching && !hasResults && (
         <EmptyState title="No results" message={`Nothing matched "${query}".`} />
       )}
 
@@ -82,14 +87,16 @@ export default function SearchPage() {
         </Section>
       )}
 
-      {matchedContributors.length > 0 && (
+      {matchedProfiles.length > 0 && (
         <Section title="Contributors">
           <div className="flex flex-col gap-2">
-            {matchedContributors.map((c) => (
-              <Link key={c.id} href={`/profile/${c.wallet}`} className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-wist rounded-2xl">
+            {matchedProfiles.map((p) => (
+              <Link key={p.id} href={`/profile/${p.walletAddress}`} className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-wist rounded-2xl">
                 <GlassCard className="p-4 flex items-center justify-between gap-4 flex-wrap">
-                  <span className="font-display text-sm font-semibold text-t1">{c.name}</span>
-                  <span className="font-mono text-xs text-t3">{truncateAddress(c.wallet, 6)}</span>
+                  <span className="font-display text-sm font-semibold text-t1">
+                    {p.displayName || truncateAddress(p.walletAddress, 6)}
+                  </span>
+                  <span className="font-mono text-xs text-t3">{truncateAddress(p.walletAddress, 6)}</span>
                 </GlassCard>
               </Link>
             ))}

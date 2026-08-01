@@ -1,38 +1,45 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
-// TODO: wire to Supabase (realtime subscription on a `notifications` table)
-// once the backend is live. Mock data below stands in for now.
-const mockNotifications = [
-  {
-    id: "n1",
-    title: "Evaluation complete",
-    body: "Your bounty \"Decentralized Identity Platform\" finished evaluation.",
-    time: "2h ago",
-    unread: true,
-  },
-  {
-    id: "n2",
-    title: "New submission",
-    body: "Carol submitted to \"On-Chain Analytics Dashboard\".",
-    time: "5h ago",
-    unread: true,
-  },
-  {
-    id: "n3",
-    title: "Reward settled",
-    body: "1,500 GEN credited for your Documentation contribution.",
-    time: "1d ago",
-    unread: false,
-  },
-];
+type NotificationRow = {
+  id: string;
+  type: string;
+  payload: { title?: string; body?: string };
+  read_at: string | null;
+  created_at: string;
+};
+
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
 
 export function NotificationsPanel() {
   const [open, setOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const ref = useRef<HTMLDivElement>(null);
-  const unreadCount = mockNotifications.filter((n) => n.unread).length;
+  const unreadCount = notifications.filter((n) => !n.read_at).length;
+
+  useEffect(() => {
+    // RLS restricts rows to the authenticated user's own notifications — this
+    // safely returns an empty list until a real Supabase Auth session (via
+    // wallet-auth) exists, rather than erroring.
+    supabase
+      .from("notifications")
+      .select("id, type, payload, read_at, created_at")
+      .order("created_at", { ascending: false })
+      .limit(20)
+      .then(({ data }) => {
+        if (data) setNotifications(data as NotificationRow[]);
+      });
+  }, []);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -73,24 +80,34 @@ export function NotificationsPanel() {
           <div className="px-3 py-2 font-mono text-[.6rem] uppercase tracking-[.18em] text-t3">
             Notifications
           </div>
-          <ul className="flex flex-col gap-1 max-h-80 overflow-y-auto">
-            {mockNotifications.map((n) => (
-              <li key={n.id}>
-                <div
-                  className={cn(
-                    "rounded-xl px-3 py-2.5 transition-colors hover:bg-wist/[.06]",
-                    n.unread && "bg-maj/[.06]"
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-display text-sm font-semibold text-t1">{n.title}</p>
-                    <span className="font-mono text-[.6rem] text-t3 shrink-0">{n.time}</span>
+          {notifications.length === 0 ? (
+            <p className="px-3 py-4 text-xs text-t3">
+              No notifications yet. Connect and sign in with your wallet to see activity here.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1 max-h-80 overflow-y-auto">
+              {notifications.map((n) => (
+                <li key={n.id}>
+                  <div
+                    className={cn(
+                      "rounded-xl px-3 py-2.5 transition-colors hover:bg-wist/[.06]",
+                      !n.read_at && "bg-maj/[.06]"
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-display text-sm font-semibold text-t1">
+                        {n.payload.title || n.type}
+                      </p>
+                      <span className="font-mono text-[.6rem] text-t3 shrink-0">
+                        {timeAgo(n.created_at)}
+                      </span>
+                    </div>
+                    {n.payload.body && <p className="text-xs text-t2 mt-0.5">{n.payload.body}</p>}
                   </div>
-                  <p className="text-xs text-t2 mt-0.5">{n.body}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>

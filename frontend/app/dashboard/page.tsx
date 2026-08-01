@@ -1,21 +1,44 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { EmptyState } from "@/components/states/EmptyState";
 import { StatusBadge } from "@/components/ui/Badge";
-import { bounties, submissions, contributionGraph } from "@/lib/mockData";
+import {
+  getBountiesBySponsor,
+  getContributionGraphByContributor,
+  getSubmissionsByContributor,
+} from "@/lib/data";
+import type { Bounty, ContributionGraphEntry, Submission } from "@/lib/types";
 import { formatGen } from "@/lib/utils";
 
 export default function DashboardPage() {
-  const { isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
+  const [sponsored, setSponsored] = useState<Bounty[]>([]);
+  const [mySubmissions, setMySubmissions] = useState<Submission[]>([]);
+  const [myGraphEntries, setMyGraphEntries] = useState<ContributionGraphEntry[]>([]);
 
-  // TODO: wire to Supabase — filter bounties/submissions/rewards by the
-  // connected wallet's linked profile rather than showing the full mock set.
-  const sponsored = bounties.slice(0, 2);
-  const mySubmissions = submissions.slice(0, 2);
-  const totalEarned = contributionGraph.reduce((sum, n) => sum + n.rewardGen, 0);
+  useEffect(() => {
+    if (!address) return;
+    let cancelled = false;
+    Promise.all([
+      getBountiesBySponsor(address),
+      getSubmissionsByContributor(address),
+      getContributionGraphByContributor(address),
+    ]).then(([b, s, g]) => {
+      if (cancelled) return;
+      setSponsored(b);
+      setMySubmissions(s);
+      setMyGraphEntries(g);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  const totalEarned = myGraphEntries.reduce((sum, n) => sum + n.rewardOwedGen, 0);
 
   if (!isConnected) {
     return (
@@ -64,7 +87,7 @@ export default function DashboardPage() {
             <GlassCard key={b.id} className="p-5">
               <div className="flex items-center justify-between mb-2">
                 <StatusBadge status={b.status} />
-                <span className="font-mono text-xs text-t2">{formatGen(b.prizeGen)} GEN</span>
+                <span className="font-mono text-xs text-t2">{formatGen(b.rewardPoolGen)} GEN</span>
               </div>
               <h3 className="font-display text-sm font-semibold text-t1">{b.title}</h3>
             </GlassCard>
@@ -76,10 +99,7 @@ export default function DashboardPage() {
         <div className="grid sm:grid-cols-2 gap-4">
           {mySubmissions.map((s) => (
             <GlassCard key={s.id} className="p-5">
-              <div className="font-mono text-[.6rem] uppercase tracking-[.1em] text-wist mb-1.5">
-                {s.category}
-              </div>
-              <h3 className="font-display text-sm font-semibold text-t1">{s.excerpt}</h3>
+              <h3 className="font-display text-sm font-semibold text-t1">{s.summary}</h3>
             </GlassCard>
           ))}
         </div>
@@ -88,7 +108,7 @@ export default function DashboardPage() {
       <Section title="Notifications">
         <GlassCard className="p-5">
           <p className="text-sm text-t2">
-            2 unread notifications — see the bell icon in the navigation bar.
+            See the bell icon in the navigation bar for your notifications.
           </p>
         </GlassCard>
       </Section>
