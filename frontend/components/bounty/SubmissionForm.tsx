@@ -1,34 +1,38 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { TransactionProgress } from "@/components/tx/TransactionProgress";
+import { GeneratedWalletPanel } from "@/components/wallet/GeneratedWalletPanel";
 import { VERTEX_CONTRACT_ADDRESS, ensureStudioNetwork } from "@/lib/genlayer";
 import { useContractWrite } from "@/lib/useContractWrite";
+import { useActiveIdentity } from "@/lib/useActiveIdentity";
 
 export function SubmissionForm({ chainBountyId }: { chainBountyId: number | null }) {
-  const { address, isConnected } = useAccount();
+  const identity = useActiveIdentity();
   const [evidenceUrl, setEvidenceUrl] = useState("");
   const [summary, setSummary] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const { phase, hash, error, settled, execute, reset } = useContractWrite();
 
-  if (!isConnected || !address) {
+  if (identity.mode === "none") {
     return (
-      <GlassCard className="p-6 text-center">
-        <h3 className="font-display text-base font-semibold text-t1 mb-2">
-          Connect a wallet to submit
-        </h3>
-        <p className="text-sm text-t2 mb-5">
-          Submissions are attributed to your connected wallet address.
-        </p>
-        <div className="flex justify-center">
-          <ConnectButton />
-        </div>
-      </GlassCard>
+      <div className="flex flex-col gap-4">
+        <GlassCard className="p-6 text-center">
+          <h3 className="font-display text-base font-semibold text-t1 mb-2">
+            Connect a wallet to submit
+          </h3>
+          <p className="text-sm text-t2 mb-5">
+            Submissions are attributed to your active wallet address.
+          </p>
+          <div className="flex justify-center">
+            <ConnectButton />
+          </div>
+        </GlassCard>
+        <GeneratedWalletPanel identity={identity} compact />
+      </div>
     );
   }
 
@@ -45,8 +49,8 @@ export function SubmissionForm({ chainBountyId }: { chainBountyId: number | null
       return;
     }
 
-    await ensureStudioNetwork();
-    await execute(address as `0x${string}`, {
+    if (identity.mode === "injected") await ensureStudioNetwork();
+    await execute(identity, {
       address: VERTEX_CONTRACT_ADDRESS as `0x${string}`,
       functionName: "submit_solution",
       args: [chainBountyId, evidenceUrl.trim(), summary.trim()],

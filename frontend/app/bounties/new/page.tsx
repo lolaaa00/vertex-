@@ -3,19 +3,20 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { parseUnits } from "viem";
-import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { TransactionProgress } from "@/components/tx/TransactionProgress";
+import { GeneratedWalletPanel } from "@/components/wallet/GeneratedWalletPanel";
 import { VERTEX_CONTRACT_ADDRESS, ensureStudioNetwork } from "@/lib/genlayer";
 import { useContractWrite } from "@/lib/useContractWrite";
+import { useActiveIdentity } from "@/lib/useActiveIdentity";
 
 const DEFAULT_CATEGORIES = ["security", "ux", "performance", "recovery", "documentation"];
 
 export default function CreateBountyPage() {
   const router = useRouter();
-  const { address, isConnected } = useAccount();
+  const identity = useActiveIdentity();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -27,20 +28,22 @@ export default function CreateBountyPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const { phase, hash, error, settled, execute, reset } = useContractWrite();
 
-  if (!isConnected || !address) {
+  if (identity.mode === "none") {
     return (
-      <div className="max-w-lg mx-auto">
+      <div className="max-w-lg mx-auto flex flex-col gap-4">
         <GlassCard className="p-6 text-center">
           <h3 className="font-display text-base font-semibold text-t1 mb-2">
             Connect a wallet to sponsor a bounty
           </h3>
           <p className="text-sm text-t2 mb-5">
-            You&apos;ll fund the reward pool directly from your connected wallet.
+            You&apos;ll fund the reward pool directly from your active wallet. A generated wallet
+            starts with 0 GEN, so a real injected wallet is recommended for funding bounties.
           </p>
           <div className="flex justify-center">
             <ConnectButton />
           </div>
         </GlassCard>
+        <GeneratedWalletPanel identity={identity} compact />
       </div>
     );
   }
@@ -73,8 +76,8 @@ export default function CreateBountyPage() {
       return;
     }
 
-    await ensureStudioNetwork();
-    await execute(address as `0x${string}`, {
+    if (identity.mode === "injected") await ensureStudioNetwork();
+    await execute(identity, {
       address: VERTEX_CONTRACT_ADDRESS as `0x${string}`,
       functionName: "create_bounty",
       args: [

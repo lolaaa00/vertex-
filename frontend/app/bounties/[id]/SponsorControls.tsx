@@ -2,26 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { TransactionProgress } from "@/components/tx/TransactionProgress";
 import { VERTEX_CONTRACT_ADDRESS, ensureStudioNetwork } from "@/lib/genlayer";
 import { useContractWrite } from "@/lib/useContractWrite";
+import { useActiveIdentity } from "@/lib/useActiveIdentity";
 import type { Bounty } from "@/lib/types";
 
 export function SponsorControls({ bounty }: { bounty: Bounty }) {
   const router = useRouter();
-  const { address } = useAccount();
+  const identity = useActiveIdentity();
   const [formError, setFormError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<"close_submissions" | "evaluate_bounty" | null>(null);
   const { phase, hash, error, settled, execute, reset } = useContractWrite();
 
   // Sponsor-only gate: in production this should also be verified
   // server-side against the contract's stored sponsor address, not just
-  // the connected wallet — this client check is a UX convenience only.
+  // the active wallet — this client check is a UX convenience only.
   const isSponsor =
-    !!address && address.toLowerCase() === bounty.sponsorWallet.toLowerCase();
+    identity.address != null && identity.address.toLowerCase() === bounty.sponsorWallet.toLowerCase();
 
   useEffect(() => {
     if (settled) router.refresh();
@@ -40,8 +40,8 @@ export function SponsorControls({ bounty }: { bounty: Bounty }) {
       return;
     }
     setPendingAction(functionName);
-    await ensureStudioNetwork();
-    await execute(address as `0x${string}`, {
+    if (identity.mode === "injected") await ensureStudioNetwork();
+    await execute(identity, {
       address: VERTEX_CONTRACT_ADDRESS as `0x${string}`,
       functionName,
       args: [bounty.chainBountyId],

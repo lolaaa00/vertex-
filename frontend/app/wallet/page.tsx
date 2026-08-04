@@ -4,7 +4,9 @@ import { useAccount, useBalance, useDisconnect } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
+import { GeneratedWalletPanel } from "@/components/wallet/GeneratedWalletPanel";
 import { EmptyState } from "@/components/states/EmptyState";
+import { useActiveIdentity } from "@/lib/useActiveIdentity";
 import { truncateAddress } from "@/lib/utils";
 
 // Deferred: real transaction history needs a per-wallet activity index.
@@ -20,8 +22,9 @@ const placeholderTxHistory = [
 ];
 
 export default function WalletPage() {
-  const { address, isConnected, connector } = useAccount();
-  const { data: balance } = useBalance({ address });
+  const identity = useActiveIdentity();
+  const { isConnected, connector } = useAccount();
+  const { data: balance } = useBalance({ address: identity.address ?? undefined });
   const { disconnect } = useDisconnect();
 
   return (
@@ -30,16 +33,31 @@ export default function WalletPage() {
         Wallet <span className="text-gradient">Management</span>
       </h1>
       <p className="text-t2 mb-8">
-        Connect with MetaMask, Rainbow, Zerion, or any WalletConnect-compatible
-        wallet via RainbowKit.
+        Connect with MetaMask, Rainbow, Zerion, or any WalletConnect-compatible wallet via
+        RainbowKit — or generate a browser-only wallet below if you don&apos;t have one.
       </p>
 
-      {!isConnected ? (
-        <EmptyState
-          title="No wallet connected"
-          message="Connect a wallet to view your balance and transaction history."
-          action={<ConnectButton />}
-        />
+      {identity.mode === "none" ? (
+        <div className="flex flex-col gap-4">
+          <EmptyState
+            title="No wallet connected"
+            message="Connect a wallet to view your balance and transaction history."
+            action={<ConnectButton />}
+          />
+          <GeneratedWalletPanel identity={identity} />
+        </div>
+      ) : identity.mode === "generated" ? (
+        <div className="flex flex-col gap-6">
+          <GeneratedWalletPanel identity={identity} />
+          <GlassCard className="p-4">
+            <div className="font-mono text-[.58rem] uppercase tracking-[.14em] text-t3 mb-1">
+              Native Balance
+            </div>
+            <div className="font-mono text-lg text-gradient font-medium">
+              {balance ? `${Number(balance.formatted).toFixed(4)} ${balance.symbol}` : "0.0000 GEN"}
+            </div>
+          </GlassCard>
+        </div>
       ) : (
         <div className="flex flex-col gap-6">
           <GlassCard className="p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -48,7 +66,7 @@ export default function WalletPage() {
                 Connected via {connector?.name ?? "wallet"}
               </div>
               <div className="font-display text-lg font-semibold text-t1">
-                {address ? truncateAddress(address, 6) : "—"}
+                {identity.address ? truncateAddress(identity.address, 6) : "—"}
               </div>
             </div>
             <div className="flex items-center gap-3">

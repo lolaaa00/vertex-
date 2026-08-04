@@ -3,8 +3,9 @@
 import { useCallback, useRef, useState } from "react";
 import { TransactionStatus } from "genlayer-js/types";
 import type { TransactionHash, CalldataEncodable } from "genlayer-js/types";
-import { getGenlayerWriteClient } from "./genlayer";
+import { getGenlayerWriteClient, getGeneratedWriteClient } from "./genlayer";
 import { extractErrorMessage } from "./errors";
+import type { ActiveIdentity } from "./useActiveIdentity";
 
 // Statuses that mean "nothing was written, this can be retried" — per the
 // GenLayer submission spec: UNDETERMINED is not an error, it's a retryable
@@ -80,14 +81,20 @@ export function useContractWrite() {
   }, []);
 
   const execute = useCallback(
-    async (address: `0x${string}`, write: WriteArgs) => {
+    async (identity: ActiveIdentity, write: WriteArgs) => {
       cancelled.current = false;
       setError(null);
       setSettled(false);
       setHash(null);
       setPhase("signing");
       try {
-        const client = getGenlayerWriteClient(address);
+        if (identity.mode === "none") {
+          throw new Error("No wallet connected — connect a wallet or generate one first.");
+        }
+        const client =
+          identity.mode === "injected"
+            ? getGenlayerWriteClient(identity.address)
+            : getGeneratedWriteClient(identity.account);
         const txHash = await client.writeContract(write);
         setHash(txHash);
         setPhase(TransactionStatus.PENDING);

@@ -1,19 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAccount } from "wagmi";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { TransactionProgress } from "@/components/tx/TransactionProgress";
 import { getBounties, getPlatformStats } from "@/lib/data";
 import { genlayerClient, VERTEX_CONTRACT_ADDRESS, ensureStudioNetwork } from "@/lib/genlayer";
 import { useContractWrite } from "@/lib/useContractWrite";
+import { useActiveIdentity } from "@/lib/useActiveIdentity";
 import type { Bounty, PlatformStats } from "@/lib/types";
 import { formatGen, truncateAddress } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui/Badge";
 
 export default function AdminDashboardPage() {
-  const { address } = useAccount();
+  const identity = useActiveIdentity();
+  const address = identity.address;
   const [owner, setOwner] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
   const [log, setLog] = useState<string[]>([]);
@@ -62,8 +63,8 @@ export default function AdminDashboardPage() {
   async function handleTogglePause() {
     if (!address) return;
     reset();
-    await ensureStudioNetwork();
-    await execute(address as `0x${string}`, {
+    if (identity.mode === "injected") await ensureStudioNetwork();
+    await execute(identity, {
       address: VERTEX_CONTRACT_ADDRESS as `0x${string}`,
       functionName: paused ? "unpause" : "pause",
       args: [],

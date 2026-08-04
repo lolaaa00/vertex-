@@ -1,5 +1,6 @@
 import { createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
+import type { GeneratedAccount } from "./generatedWallet";
 
 // Use genlayer-js's own `studionet` export (not the manually-defined one in
 // ./chains, which is a plain viem Chain for wagmi/RainbowKit's chain list).
@@ -50,6 +51,17 @@ export function getGenlayerWriteClient(address: `0x${string}`) {
     ...(rpcUrl ? { endpoint: rpcUrl } : {}),
     account: address,
     provider: window.ethereum,
+  });
+}
+
+// Write client for the generated (local-key) identity — signs locally via
+// the account's own sign() methods, no injected provider or network switch
+// needed since there's no external wallet to steer.
+export function getGeneratedWriteClient(account: GeneratedAccount) {
+  return createClient({
+    chain: studionet,
+    ...(rpcUrl ? { endpoint: rpcUrl } : {}),
+    account,
   });
 }
 
