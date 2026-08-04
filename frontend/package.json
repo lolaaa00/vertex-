@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "verify-schema": "node scripts/verify-contract-schema.mjs"
   },
   "dependencies": {
     "@rainbow-me/rainbowkit": "^2.1.6",
