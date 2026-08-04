@@ -12,6 +12,10 @@ UI 20%, Performance 25%, Recovery 15%, Docs 10%).
 done/verified, what's left, and every credential you'll need. This README is
 just a map of the repo; `MEMORY.md` is the source of truth on project state.
 
+**Why this idea, over what alternatives → [`DECISION_RECORD.md`](./DECISION_RECORD.md)**
+— 10 candidates spanning web-fetch, native GEN value, image evidence, and
+embeddings, gate-by-gate justification for Vertex, and an honest self-audit.
+
 ## Repo layout
 
 ```
