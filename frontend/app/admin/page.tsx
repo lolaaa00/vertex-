@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
+import { TransactionProgress } from "@/components/tx/TransactionProgress";
 import { getBounties, getPlatformStats } from "@/lib/data";
-import { genlayerClient, getGenlayerWriteClient, VERTEX_CONTRACT_ADDRESS, ensureStudioNetwork } from "@/lib/genlayer";
+import { genlayerClient, VERTEX_CONTRACT_ADDRESS, ensureStudioNetwork } from "@/lib/genlayer";
+import { useContractWrite } from "@/lib/useContractWrite";
 import type { Bounty, PlatformStats } from "@/lib/types";
 import { formatGen, truncateAddress } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui/Badge";
@@ -14,10 +16,10 @@ export default function AdminDashboardPage() {
   const { address } = useAccount();
   const [owner, setOwner] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
-  const [pauseBusy, setPauseBusy] = useState(false);
   const [log, setLog] = useState<string[]>([]);
   const [bounties, setBounties] = useState<Bounty[]>([]);
   const [platformStats, setPlatformStats] = useState<PlatformStats | null>(null);
+  const { phase, hash, error, settled, execute, reset } = useContractWrite();
 
   useEffect(() => {
     let cancelled = false;
@@ -49,27 +51,24 @@ export default function AdminDashboardPage() {
     setLog((l) => [msg, ...l].slice(0, 5));
   }
 
+  useEffect(() => {
+    if (settled) {
+      setPaused((p) => !p);
+      pushLog(`Platform ${paused ? "resumed" : "paused"} on-chain.${hash ? ` tx: ${hash}` : ""}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settled]);
+
   async function handleTogglePause() {
     if (!address) return;
-    setPauseBusy(true);
-    try {
-      await ensureStudioNetwork();
-      const client = getGenlayerWriteClient(address as `0x${string}`);
-      const hash = await client.writeContract({
-        address: VERTEX_CONTRACT_ADDRESS as `0x${string}`,
-        functionName: paused ? "unpause" : "pause",
-        args: [],
-        value: BigInt(0),
-      });
-      pushLog(`${paused ? "Unpause" : "Pause"} tx submitted: ${hash}`);
-      await client.waitForTransactionReceipt({ hash, status: "ACCEPTED" as never });
-      setPaused((p) => !p);
-      pushLog(`Platform ${paused ? "resumed" : "paused"} on-chain.`);
-    } catch (e) {
-      pushLog(`Failed: ${e instanceof Error ? e.message : "transaction rejected"}`);
-    } finally {
-      setPauseBusy(false);
-    }
+    reset();
+    await ensureStudioNetwork();
+    await execute(address as `0x${string}`, {
+      address: VERTEX_CONTRACT_ADDRESS as `0x${string}`,
+      functionName: paused ? "unpause" : "pause",
+      args: [],
+      value: BigInt(0),
+    });
   }
 
   return (
@@ -104,14 +103,32 @@ export default function AdminDashboardPage() {
               access this control.
             </p>
           ) : (
-            <Button
-              variant={paused ? "primary" : "ghost"}
-              className={paused ? "" : "border-rose/30 hover:border-rose/60"}
-              onClick={handleTogglePause}
-              disabled={pauseBusy}
-            >
-              {pauseBusy ? "Submitting..." : paused ? "Resume Platform" : "Pause Platform"}
-            </Button>
+            <>
+              <Button
+                variant={paused ? "primary" : "ghost"}
+                className={paused ? "" : "border-rose/30 hover:border-rose/60"}
+                onClick={handleTogglePause}
+                disabled={phase !== "idle" && phase !== "error" && phase !== "retryable"}
+              >
+                {phase !== "idle" && phase !== "error" && phase !== "retryable"
+                  ? "Working..."
+                  : paused
+                    ? "Resume Platform"
+                    : "Pause Platform"}
+              </Button>
+              <div className="mt-3">
+                <TransactionProgress
+                  phase={phase}
+                  hash={hash}
+                  error={error}
+                  settled={settled}
+                  onRetry={() => {
+                    reset();
+                    handleTogglePause();
+                  }}
+                />
+              </div>
+            </>
           )}
         </GlassCard>
 

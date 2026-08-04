@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { parseUnits } from "viem";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { TransactionStatus } from "genlayer-js/types";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
-import { VERTEX_CONTRACT_ADDRESS, ensureStudioNetwork, getGenlayerWriteClient } from "@/lib/genlayer";
-import { extractErrorMessage } from "@/lib/errors";
+import { TransactionProgress } from "@/components/tx/TransactionProgress";
+import { VERTEX_CONTRACT_ADDRESS, ensureStudioNetwork } from "@/lib/genlayer";
+import { useContractWrite } from "@/lib/useContractWrite";
 
 const DEFAULT_CATEGORIES = ["security", "ux", "performance", "recovery", "documentation"];
 
@@ -24,9 +24,8 @@ export default function CreateBountyPage() {
   const [deadline, setDeadline] = useState("");
   const [rewardGen, setRewardGen] = useState("");
 
-  const [status, setStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [txHash, setTxHash] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const { phase, hash, error, settled, execute, reset } = useContractWrite();
 
   if (!isConnected || !address) {
     return (
@@ -48,64 +47,49 @@ export default function CreateBountyPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
+    setFormError(null);
 
+    // EXPECTED-class validation, caught client-side before ever sending a
+    // transaction — per the spec, an EXPECTED (caller-mistake) condition
+    // should never reach the wallet/network round trip.
     if (!VERTEX_CONTRACT_ADDRESS) {
-      setError("Contract address is not configured (NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS).");
+      setFormError("Contract address is not configured (NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS).");
       return;
     }
     const deadlineTs = Math.floor(new Date(deadline).getTime() / 1000);
     if (!deadline || Number.isNaN(deadlineTs) || deadlineTs <= Math.floor(Date.now() / 1000)) {
-      setError("Submission deadline must be a valid future date/time.");
+      setFormError("Submission deadline must be a valid future date/time.");
       return;
     }
     let valueWei: bigint;
     try {
       valueWei = parseUnits(rewardGen || "0", 18);
     } catch {
-      setError("Reward amount must be a valid number.");
+      setFormError("Reward amount must be a valid number.");
       return;
     }
     if (valueWei <= BigInt(0)) {
-      setError("Reward amount must be greater than 0 GEN.");
+      setFormError("Reward amount must be greater than 0 GEN.");
       return;
     }
 
-    setStatus("pending");
-    try {
-      await ensureStudioNetwork();
-      const client = getGenlayerWriteClient(address as `0x${string}`);
-
-      const hash = await client.writeContract({
-        address: VERTEX_CONTRACT_ADDRESS as `0x${string}`,
-        functionName: "create_bounty",
-        args: [
-          title.trim(),
-          description.trim(),
-          category.trim(),
-          evaluationCriteria.trim(),
-          deadlineTs,
-          0,
-        ],
-        value: valueWei,
-      });
-      setTxHash(hash);
-
-      await client.waitForTransactionReceipt({
-        hash,
-        status: TransactionStatus.ACCEPTED,
-      });
-
-      setStatus("success");
-    } catch (err) {
-      setStatus("error");
-      // eslint-disable-next-line no-console
-      console.error("[bounties/new] create_bounty failed:", err);
-      setError(extractErrorMessage(err));
-    }
+    await ensureStudioNetwork();
+    await execute(address as `0x${string}`, {
+      address: VERTEX_CONTRACT_ADDRESS as `0x${string}`,
+      functionName: "create_bounty",
+      args: [
+        title.trim(),
+        description.trim(),
+        category.trim(),
+        evaluationCriteria.trim(),
+        deadlineTs,
+        0,
+      ],
+      value: valueWei,
+    });
   }
 
-  if (status === "success") {
+  if (settled) {
     return (
       <div className="max-w-lg mx-auto">
         <GlassCard className="p-6 text-center">
@@ -116,8 +100,8 @@ export default function CreateBountyPage() {
             Transaction accepted. It can take up to a minute for the sync-chain-state cron job to
             mirror this into the marketplace listing.
           </p>
-          {txHash && (
-            <p className="font-mono text-[.65rem] text-t3 break-all mt-3">{txHash}</p>
+          {hash && (
+            <p className="font-mono text-[.65rem] text-t3 break-all mt-3">{hash}</p>
           )}
           <Button className="mt-5" onClick={() => router.push("/bounties")}>
             Go to Bounty Explorer
@@ -138,7 +122,7 @@ export default function CreateBountyPage() {
       </p>
 
       <GlassCard className="p-6">
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <form id="create-bounty-form" onSubmit={onSubmit} className="flex flex-col gap-4">
           <Field label="Title" htmlFor="bounty-title">
             <input
               id="bounty-title"
@@ -217,15 +201,26 @@ export default function CreateBountyPage() {
             </Field>
           </div>
 
-          <Button type="submit" disabled={status === "pending"} className="self-start">
-            {status === "pending" ? "Confirm in wallet..." : "Create Bounty"}
+          <Button type="submit" disabled={phase !== "idle" && phase !== "error" && phase !== "retryable"} className="self-start">
+            {phase === "idle" || phase === "error" || phase === "retryable" ? "Create Bounty" : "Working..."}
           </Button>
 
-          {error && (
+          {formError && (
             <p role="alert" className="text-xs text-rose font-mono">
-              {error}
+              {formError}
             </p>
           )}
+          <TransactionProgress
+            phase={phase}
+            hash={hash}
+            error={error}
+            settled={settled}
+            onRetry={() => {
+              reset();
+              const form = document.getElementById("create-bounty-form") as HTMLFormElement | null;
+              form?.requestSubmit();
+            }}
+          />
         </form>
       </GlassCard>
     </div>
