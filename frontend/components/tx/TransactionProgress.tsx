@@ -2,6 +2,7 @@
 
 import { TransactionStatus } from "genlayer-js/types";
 import type { WritePhase } from "@/lib/useContractWrite";
+import { classifyError } from "@/lib/errors";
 
 const STAGE_LABELS: Partial<Record<TransactionStatus, string>> = {
   [TransactionStatus.PENDING]: "Submitted — waiting for a leader to be assigned",
@@ -45,10 +46,15 @@ export function TransactionProgress({
   }
 
   if (phase === "error") {
+    const classified = classifyError(error ?? "Transaction failed.");
     return (
-      <p role="alert" className="text-xs text-rose font-mono">
-        {error ?? "Transaction failed."}
-      </p>
+      <div role="alert" className="rounded-lg border border-rose/30 bg-rose/[.06] p-3">
+        <p className="text-[.6rem] font-mono uppercase tracking-[.14em] text-rose mb-1">
+          {classified.kind === "UNKNOWN" ? "Error" : classified.kind.replace("_", " ")}
+        </p>
+        <p className="text-xs text-rose font-mono mb-1.5">{classified.message}</p>
+        <p className="text-[.65rem] font-mono text-t3">{classified.guidance}</p>
+      </div>
     );
   }
 
