@@ -29,7 +29,7 @@ https://testnet-faucet.genlayer.foundation/.
 import time
 
 import pytest
-from gltest import get_contract_factory, default_account
+from gltest import get_contract_factory, get_default_account
 
 GEN = 10**18
 

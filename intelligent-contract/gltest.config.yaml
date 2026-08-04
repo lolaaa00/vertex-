@@ -1,0 +1,14 @@
+# Test network configuration for `gltest`. Confirmed empirically against the
+# installed genlayer-test version: a top-level `default:` key errors with
+# "Invalid configuration keys. Valid keys are: ['networks', 'paths',
+# 'environment']" — but omitting `default` entirely anywhere errors with
+# `KeyError: 'default'` even for plain `pytest tests/direct/` runs. So it
+# must live nested under `networks`. Not documented at
+# https://docs.genlayer.com/full-documentation.txt (which only shows
+# `networks:` for testnet account config) — this shape is what actually
+# works against the installed version. Still always pass
+# `--network studionet` explicitly on integration runs rather than relying
+# on this value alone.
+networks:
+  default: studionet
+  studionet: {}

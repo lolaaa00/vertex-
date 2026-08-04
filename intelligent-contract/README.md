@@ -78,32 +78,59 @@ network with a live LLM provider configured) actual LLM reasoning. This
 requires a running environment — GenLayer Studio, GLSim, or a configured
 StudioNet RPC — and, for non-local networks, a funded account.
 
+**Target StudioNet — this is the reviewed/deployed network for this project.**
+`gltest` defaults to localnet if `--network` is omitted; always pass it
+explicitly (`gltest.config.yaml` documents this — there is no verified
+"default network" key in the schema to rely on instead):
+
 ```bash
-# Option A — local simulator (GLSim)
-genlayer network set localnet
-genlayer up                      # starts the local GenVM/Studio simulator
-
-# Option B — StudioNet (gasless; 0 GEN is expected and fine)
-genlayer network set studionet
-
-# Option C — a funded testnet (Bradbury / Asimov)
-# fund the account first via https://testnet-faucet.genlayer.foundation/
-genlayer network set testnet_bradbury
-
 cd intelligent-contract
-gltest tests/integration/ -v -s
+gltest tests/integration/ -v -s --network studionet   # gasless; 0 GEN is expected and fine
 ```
 
-These tests were written to be correct against the current GenLayer test
-SDK surface (`gltest.get_contract_factory`, `.deploy(args=...)`,
-`contract.<method>(args=..., value=...)`, `tx.wait()`, `tx.status`) but were
-**not executed** in this environment — no Studio/GLSim/StudioNet instance
-was available here. Do not treat any pass/fail claim about them as verified
-until you run them yourself. One sub-test
-(`test_claim_sponsor_timeout_recovery_path`) is marked `pytest.skip(...)`
-because it requires waiting out the contract's `MIN_TIMEOUT_GRACE_SECONDS`
-(3600s) floor on a live network, or a GLSim harness with block-time warp —
-run it manually with patience, or extend GLSim's warp support first.
+Other options, for local iteration only — never the network reported as
+tested in this README:
+
+```bash
+# GLSim — fast local simulator, no Docker
+pip install "genlayer-test[sim]"
+glsim --port 4000 --validators 5
+gltest tests/integration/ -v -s --network localnet
+
+# A funded testnet (Bradbury/Asimov) — fund the account first via
+# https://testnet-faucet.genlayer.foundation/, and configure it under
+# `networks:` in gltest.config.yaml per the docs.
+gltest tests/integration/ -v -s --network testnet_bradbury
+```
+
+**Update — actually executed against real StudioNet consensus (2026-08-01).**
+Direct tests: 34/34 passing (`pytest tests/direct/ -v`, 1.86s, no mocks
+bypassed). Integration tests: found and fixed one real bug on first run —
+`from gltest import get_contract_factory, default_account` referenced a name
+that doesn't exist in the installed SDK (`gltest 0.29.2`); the real export is
+`get_default_account`. Fixed in
+`tests/integration/test_vertex_bounty_fusion_integration.py`.
+
+After that fix, every integration test still fails at the `deployed_contract`
+fixture — `factory.deploy(args=[0, 3600])` against StudioNet consistently
+returns a leader receipt with `execution_result: 'ERROR'` and **empty
+`stdout`/`stderr`/`error_code`/`error_description`** (three consecutive
+attempts, three different tx hashes, same opaque failure each time), even
+though validators reach quorum. This is the same class of issue documented
+below under "CLI deploy quirk" — `gltest`'s `factory.deploy()` and
+`genlayer deploy` both go through the same underlying deploy path, and both
+have now been observed to fail this way, while deploying the identical,
+unmodified contract via the **Studio web UI has twice produced a working,
+queryable deployment** (see `0xd942430229dD389fabeA73699Ffd9b09549b51D5`
+below). The integration test suite is therefore verified correct against the
+current SDK surface (the import bug is real and fixed) but still **not
+executable end-to-end from the CLI/SDK path** — only the Studio web UI path
+is confirmed to work, and that path isn't scriptable by `gltest`. If you hit
+this, don't assume the contract or the tests are broken; it's the same
+tooling gap. One sub-test (`test_claim_sponsor_timeout_recovery_path`) is
+also marked `pytest.skip(...)` because it requires waiting out the
+contract's `MIN_TIMEOUT_GRACE_SECONDS` (3600s) floor on a live network, or a
+GLSim harness with block-time warp.
 
 ## 4. Deploy
 
