@@ -446,19 +446,55 @@ def test_evaluate_bounty_malformed_llm_output_degrades_gracefully():
         assert result["status"] == "SETTLED"
 
 
-def test_evaluate_bounty_degrades_when_web_fetch_fails():
-    """A dead evidence source must not abort the whole evaluation — the
-    contract records a fetch-failed excerpt and still reasons/pays out."""
+def test_evaluate_bounty_degrades_when_one_of_several_fetches_fails():
+    """One dead evidence source among several must not abort the whole
+    evaluation — the contract records a fetch-failed excerpt for that
+    submission and still reasons/pays out using the sources that did
+    resolve."""
     vm = VMContext()
     with vm.activate():
         c = fresh(vm)
         bid = make_bounty(vm, c, value=10 * GEN)
         submit(vm, c, bid, ALICE, "https://dead-link.example/repo", "s1")
+        submit(vm, c, bid, BOB, "https://github.com/bob/x", "s2")
         vm.sender = SPONSOR
         c.close_submissions(bid)
-        # no mock_web registered -> fetch raises inside _fetch_submission_evidence,
-        # caught and turned into an "ok: False" evidence record
-        vm.mock_llm(r".*", graph_response({"0": 10000}, {"0": "security"}))
+        # Only bob's URL is mocked -> alice's fetch raises inside
+        # _fetch_submission_evidence, caught and turned into an "ok: False"
+        # evidence record. Since bob's succeeded, this is a PARTIAL failure
+        # and must still settle.
+        mock_web_ok(vm, pattern=r".*bob.*")
+        vm.mock_llm(r".*", graph_response({"0": 3000, "1": 7000}, {"0": "security", "1": "ux"}))
+        result = c.evaluate_bounty(bid)
+        assert result["status"] == "SETTLED"
+
+
+def test_evaluate_bounty_abstains_when_all_evidence_unreachable():
+    """If EVERY submission's evidence fetch fails, the contract must abstain
+    rather than let the model force a verdict on no real evidence — a failed
+    fetch is never treated as 'the thing is absent, allocate accordingly'.
+    The call must fail, and the bounty must remain exactly as it was
+    (EVALUATING, not settled, no payout, re-evaluatable once evidence is
+    reachable again)."""
+    vm = VMContext()
+    with vm.activate():
+        c = fresh(vm)
+        bid = make_bounty(vm, c, value=10 * GEN)
+        submit(vm, c, bid, ALICE, "https://dead-link.example/repo", "s1")
+        submit(vm, c, bid, BOB, "https://also-dead.example/repo", "s2")
+        vm.sender = SPONSOR
+        c.close_submissions(bid)
+        # No mock_web registered at all -> every fetch fails.
+        with vm.expect_revert():
+            c.evaluate_bounty(bid)
+
+        bounty = c.get_bounty(bid)
+        assert bounty["status"] == "EVALUATING"
+        assert bounty["reward_deposited"] == 10 * GEN  # untouched, nothing settled
+
+        # Retryable: once evidence is reachable, a fresh call succeeds.
+        mock_web_ok(vm)
+        vm.mock_llm(r".*", graph_response({"0": 5000, "1": 5000}, {"0": "security", "1": "ux"}))
         result = c.evaluate_bounty(bid)
         assert result["status"] == "SETTLED"
 

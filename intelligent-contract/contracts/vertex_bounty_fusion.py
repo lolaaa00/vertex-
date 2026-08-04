@@ -903,6 +903,21 @@ weight only if the summary is independently credible; otherwise allocate 0.
 
         def leader() -> str:
             evidence = self._fetch_submission_evidence(submissions)
+            # Abstention path: a failed fetch is never treated as "the
+            # evidence is absent, allocate accordingly" — if EVERY source
+            # was unreachable there is nothing to judge submissions on, so
+            # abstain rather than let the model force a verdict on no real
+            # evidence. Raising here fails the whole evaluate_bounty
+            # transaction atomically (GenVM write transactions are all-or-
+            # nothing) — bounty.status stays EVALUATING, eval_lock is never
+            # persisted as RUNNING, nothing settles, and the sponsor can
+            # simply call evaluate_bounty again once sources are reachable.
+            if submissions and all(not item.get("ok") for item in evidence):
+                raise gl.vm.UserError(
+                    ERR_TRANSIENT
+                    + "every submission's evidence source was unreachable — abstaining rather than "
+                    + "settling on no real evidence; retry evaluate_bounty once sources are reachable"
+                )
             prompt = self._build_contribution_graph_prompt(
                 bounty.title, bounty.description, criteria, submissions, evidence
             )
@@ -1006,14 +1021,21 @@ weight only if the summary is independently credible; otherwise allocate 0.
         status = int(bounty.status)
         _require(status == STATUS_EVALUATING, "bounty must be EVALUATING (call close_submissions first)")
         _require(int(bounty.eval_lock) != EVAL_LOCK_DONE, "bounty has already been evaluated")
-        _require(int(bounty.eval_lock) != EVAL_LOCK_RUNNING, "an evaluation pass is already in progress")
 
         submissions = self._get_submissions(bounty_id)
         _require(len(submissions) > 0, "bounty has no submissions to evaluate")
 
-        bounty.eval_lock = u8(EVAL_LOCK_RUNNING)
         criteria = [c for c in bounty.evaluation_criteria.split(",") if c]
 
+        # Deliberately no EVAL_LOCK_RUNNING write before this call. This
+        # nondet call can now abstain by raising (see the abstention-path
+        # comment in _evaluate_contribution_graph_nondet's leader()), and a
+        # write transaction that raises is not guaranteed to have every
+        # prior mutation observably rolled back across every harness this
+        # contract is tested in (direct-mode's in-memory VM does not model
+        # transactional rollback the way real GenVM consensus does) — so
+        # eval_lock is only ever set once, after we know evaluation
+        # actually completed, rather than relying on that guarantee.
         graph = self._evaluate_contribution_graph_nondet(bounty, submissions, criteria)
         self._apply_contribution_graph(bounty, submissions, graph, now_ts)
 

@@ -159,21 +159,28 @@ try** and produced a fully verified, queryable contract. If you hit
 `invalid_contract` from the CLI, don't assume the contract is broken —
 try the Studio web UI deploy screen instead before making any code changes.
 
-### ✅ Verified working deployment (StudioNet)
+### ✅ Current deployment (StudioNet, 2026-08-04)
 
 | | |
 |---|---|
-| Address | `0x612Dc3dA6d40cAF105185A07DC398D0f14A46e3e` |
+| Address | `0x44A873a87602E16779313681b0b5165ABc1d3D6a` |
 | Deployed via | GenLayer Studio web UI |
-| Constructor args | `min_bond_default=0`, `timeout_grace_seconds=3600` (fast-testing value, not production-realistic — redeploy with a longer grace period such as 259200–604800 for real use) |
-| Verified by | `genlayer call <address> get_config` / `get_categories` / `get_bounties` — all returned correct live data |
+| Constructor args | `min_bond_default=0`, `timeout_grace_seconds=259200` (3 days) |
+| Verified by | `genlayer call <address> get_config` and `genlayer schema <address>` — correct live data, all 4 frontend-called write methods present |
 
-This is a **test deployment for verification purposes**. Treat it as proof
-the contract works, not necessarily the address the platform ships with —
-the project owner may deploy a fresh instance (so they hold the `owner`
-role for admin functions like `pause`/`set_owner`) before real use, and
-should decide with the person receiving this project which address is
-authoritative going forward.
+This is the **authoritative address** — the project owner deployed it, so
+they hold the `owner` role for admin functions like `pause`/`set_owner`.
+On this redeploy the CLI (`genlayer deploy`) failed with the
+`invalid_contract` quirk **four consecutive times** across two different
+setups before the Studio web UI succeeded on the first try — see
+`MEMORY.md` → "Current deployment" for the full detail. If the CLI fails
+more than once or twice, don't keep retrying it — switch to the web UI.
+
+Two earlier deployments exist for historical reference only —
+`0x612Dc3dA6d40cAF105185A07DC398D0f14A46e3e` (original test deployment) and
+`0xd942430229dD389fabeA73699Ffd9b09549b51D5` (first owner-controlled
+deployment, superseded after the `evaluate_bounty` abstention-path fix).
+Do not point any env file at either of them.
 
 Once you know the address you're using, provide it back so the
 frontend/backend wiring (Next.js app, Supabase Edge Functions) can be

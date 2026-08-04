@@ -48,10 +48,48 @@ working** (see below). Nothing else is wired to a real account/key yet.
     `owner: 0x5601091213049D1C92d99728aa6e8C630e4d7938`, `paused: false`,
     `timeout_grace_seconds: 259200`) and `get_categories` (returns the 5
     reward categories) — both returned correct live data.
+  - Superseded below by the 2026-08-04 redeploy — retained for reference
+    only, do not point any new env file at it.
+
+- **Current deployment (2026-08-04)** — redeployed after adding an
+  abstention path to `evaluate_bounty` (see "Contract changes" below):
+  - Address: `0x44A873a87602E16779313681b0b5165ABc1d3D6a`
+  - Constructor args: `min_bond_default=0`, `timeout_grace_seconds=259200`
+  - Verified via `genlayer call <address> get_config` (returns
+    `owner: 0x5601091213049D1C92d99728aa6e8C630e4d7938`, `paused: false`,
+    `timeout_grace_seconds: 259200`) and `genlayer schema <address>`
+    (confirms all 4 write methods the frontend calls are present).
+  - **Deploy reliability note**: on this redeploy, `genlayer deploy`
+    (CLI v0.39.2) failed with the exact `invalid_contract` quirk described
+    above **on every attempt — 4 consecutive failures** across two
+    different machines/accounts (not a one-off), all with identical
+    signature: every validator's `leader_receipt.result` shows
+    `contract_error: 'invalid_contract'` with empty stdout/stderr and no
+    diagnostic info, while the CLI still prints "Contract deployed
+    successfully". This is worse than previously observed and may reflect
+    a period of StudioNet instability rather than anything specific to
+    this contract (lint was clean, 35/35 direct tests passed throughout).
+    **The Studio web UI (studio.genlayer.com) succeeded on the first try**,
+    consistent with the original deployment's experience — if the CLI
+    fails repeatedly, don't keep retrying it; switch to the web UI
+    immediately.
   - **This is now the authoritative contract address for the project.**
-    `frontend/.env.local` has `NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS` set to
-    this address. The old test-deployment address above is retained for
-    reference only — do not point any new env file at it.
+    `frontend/.env.local`, the Vercel `NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS`
+    production env var, and the Supabase `GENLAYER_CONTRACT_ADDRESS` secret
+    (used by `sync-chain-state`) are all set to this address.
+
+### Contract changes since initial deployment (2026-08-04)
+`evaluate_bounty` now **abstains** (the whole transaction reverts, nothing
+is written, the bounty stays `EVALUATING` and is retryable) if **every**
+submission's evidence fetch fails, instead of letting the model force a
+zero-payout settlement on no real evidence. Previously a total-fetch-failure
+scenario would still settle the bounty permanently with everyone getting 0.
+The pre-nondet `eval_lock = RUNNING` write was also removed from this
+function specifically (moved to only ever be set after the nondet call
+succeeds) — direct-mode's in-memory test harness doesn't model transactional
+rollback the way real GenVM does, so relying on an assumed rollback to reset
+that lock would have been unverified. See
+`tests/direct/test_vertex_bounty_fusion.py::test_evaluate_bounty_abstains_when_all_evidence_unreachable`.
 - **Frontend** (`frontend/`): Next.js App Router + TypeScript + Tailwind.
   **All required pages exist and were visually verified running** (not just
   scaffolded) on 2026-07-29 via `npm run dev`: landing, bounty explorer,
