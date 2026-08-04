@@ -7,29 +7,28 @@ type GlassCardProps = {
   topLineClassName?: string;
 } & Omit<React.HTMLAttributes<HTMLElement>, "className" | "children">;
 
+// Named GlassCard for historical reasons (kept to avoid touching ~25 call
+// sites) but no longer glass: a flat, solid surface with a single-pixel
+// border. No backdrop-blur, no hover glow/lift — those read as decoration
+// rather than state, and a flat surface reads more like a real product
+// than a marketing page. `topLineClassName` is accepted but unused now
+// (dropped the gradient top-line hover accent); kept in the prop type so
+// call sites passing it don't need to change.
 export function GlassCard({
   children,
   className,
   as: Tag = "div",
-  topLineClassName,
   ...rest
 }: GlassCardProps) {
   const Comp = Tag as React.ElementType;
   return (
     <Comp
       className={cn(
-        "group relative overflow-hidden rounded-[20px] border border-wist/10 bg-prus2/45 backdrop-blur-xl transition-all duration-500 [transition-timing-function:cubic-bezier(.16,1,.3,1)] hover:-translate-y-1 hover:border-maj/30 hover:shadow-[0_20px_60px_rgba(106,77,212,.15)]",
+        "rounded-xl border border-wist/10 bg-prus2 transition-colors duration-150 hover:border-wist/20",
         className
       )}
       {...rest}
     >
-      <span
-        className={cn(
-          "pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-maj to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100",
-          topLineClassName
-        )}
-        aria-hidden="true"
-      />
       {children}
     </Comp>
   );
