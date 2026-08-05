@@ -114,18 +114,28 @@ that doesn't exist in the installed SDK (`gltest 0.29.2`); the real export is
 After that fix, every integration test still fails at the `deployed_contract`
 fixture — `factory.deploy(args=[0, 3600])` against StudioNet consistently
 returns a leader receipt with `execution_result: 'ERROR'` and **empty
-`stdout`/`stderr`/`error_code`/`error_description`** (three consecutive
-attempts, three different tx hashes, same opaque failure each time), even
-though validators reach quorum. This is the same class of issue documented
+`stdout`/`stderr`/`error_code`/`error_description`**, even though validators
+reach quorum and the tx often shows `status_name: 'ACCEPTED'` /
+`result_name: 'MAJORITY_AGREE'`. **Ruled out account-specific causes**: tried
+the default `gltest` account, a second machine/account (the project owner's
+own manual `genlayer deploy` attempt, same failure), and a freshly generated,
+never-before-used account imported via `genlayer account import
+--private-key` — six attempts total, six identical failures, including one
+case where the CLI printed "Contract deployed successfully" and the tx
+reported `ACCEPTED`, yet a subsequent `genlayer call <address> get_config`
+returned `Contract ... not found`. This is the same class of issue documented
 below under "CLI deploy quirk" — `gltest`'s `factory.deploy()` and
 `genlayer deploy` both go through the same underlying deploy path, and both
-have now been observed to fail this way, while deploying the identical,
-unmodified contract via the **Studio web UI has twice produced a working,
-queryable deployment** (see `0xd942430229dD389fabeA73699Ffd9b09549b51D5`
-below). The integration test suite is therefore verified correct against the
-current SDK surface (the import bug is real and fixed) but still **not
-executable end-to-end from the CLI/SDK path** — only the Studio web UI path
-is confirmed to work, and that path isn't scriptable by `gltest`. If you hit
+have now been observed to fail this way regardless of account, while
+deploying the identical, unmodified contract via the **Studio web UI has
+twice produced a working, queryable deployment** (see
+`0x44A873a87602E16779313681b0b5165ABc1d3D6a` below). This is conclusively a
+StudioNet-side reliability issue with the CLI/SDK deploy RPC path, not
+anything specific to this contract, this machine, or this account. The
+integration test suite is therefore verified correct against the current SDK
+surface (the import bug is real and fixed) but still **not executable
+end-to-end from the CLI/SDK path** — only the Studio web UI path is
+confirmed to work, and that path isn't scriptable by `gltest`. If you hit
 this, don't assume the contract or the tests are broken; it's the same
 tooling gap. One sub-test (`test_claim_sponsor_timeout_recovery_path`) is
 also marked `pytest.skip(...)` because it requires waiting out the
