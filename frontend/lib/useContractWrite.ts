@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { TransactionStatus } from "genlayer-js/types";
+import { TransactionStatus, ExecutionResult } from "genlayer-js/types";
 import type { TransactionHash, CalldataEncodable } from "genlayer-js/types";
 import { getGenlayerWriteClient, getGeneratedWriteClient } from "./genlayer";
 import { extractErrorMessage } from "./errors";
@@ -70,6 +70,27 @@ export function useContractWrite() {
         return;
       }
       if (SETTLED_STATUSES.has(status)) {
+        // A transaction can be FINALIZED by consensus while the execution
+        // itself failed (e.g. a UserError revert) — status alone doesn't
+        // mean the write succeeded. Confirmed live: a submit_solution call
+        // against a bounty id that didn't exist reached FINALIZED /
+        // MAJORITY_AGREE with the leader's execution_result still ERROR.
+        // Must check txExecutionResultName, not just status.
+        if (tx.txExecutionResultName === ExecutionResult.FINISHED_WITH_ERROR) {
+          let detail: string | null = null;
+          try {
+            const trace = await client.debugTraceTransaction({ hash: txHash as TransactionHash });
+            detail = trace?.stderr || null;
+          } catch {
+            // best-effort only
+          }
+          setPhase("error");
+          setError(
+            detail ||
+              "The contract rejected this call — execution failed on-chain (check the arguments and current state)."
+          );
+          return;
+        }
         setSettled(true);
         return;
       }
